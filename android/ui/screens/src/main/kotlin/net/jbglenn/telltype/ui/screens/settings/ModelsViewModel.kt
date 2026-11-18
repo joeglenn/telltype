@@ -10,12 +10,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.jbglenn.telltype.core.common.Outcome
+import net.jbglenn.telltype.core.model.settings.ModelRole
 import net.jbglenn.telltype.core.model.settings.OfferedModel
 import net.jbglenn.telltype.core.model.settings.ServerModels
 import net.jbglenn.telltype.core.model.settings.ServerRole
 import net.jbglenn.telltype.domain.port.ServerModelCatalog
 import net.jbglenn.telltype.domain.port.SettingsRepository
-import net.jbglenn.telltype.domain.settings.ModelChoices
+import net.jbglenn.telltype.domain.settings.ModelRoles
 import net.jbglenn.telltype.ui.designsystem.error.connectionMessageRes
 import net.jbglenn.telltype.ui.screens.common.StopTimeout
 
@@ -35,9 +36,9 @@ class ModelsViewModel @Inject constructor(
         ModelsUiState(
             configured = settings.server.isConfigured,
             chosen = settings.server.models,
-            speech = loaded.speech?.let { options(it) { false } },
-            cleanup = loaded.text?.let { options(it, ModelChoices::isRecommendedCleanup) },
-            command = loaded.text?.let { options(it, ModelChoices::isRecommended) },
+            speech = loaded.speech?.let { options(it, ModelRole.SPEECH) },
+            cleanup = loaded.text?.let { options(it, ModelRole.CLEANUP) },
+            command = loaded.text?.let { options(it, ModelRole.COMMANDS) },
             loading = loaded.loading,
             problem = loaded.problem,
         )
@@ -77,8 +78,12 @@ class ModelsViewModel @Inject constructor(
         }
     }
 
-    private fun options(models: List<OfferedModel>, recommended: (OfferedModel) -> Boolean) =
-        models.map { ModelOption(it.id, recommended = recommended(it)) }
+    /** [role]'s list (B10): only its models, each file once, "(Recommended)" once per recommended kind. */
+    private fun options(models: List<OfferedModel>, role: ModelRole): List<ModelOption> {
+        val shown = ModelRoles.forRole(models, role)
+        val recommended = ModelRoles.recommendedIds(shown, role)
+        return shown.map { ModelOption(it.id, recommended = it.id in recommended) }
+    }
 
     private fun chose(models: ServerModels, choice: ModelsAction.Choose): ServerModels {
         val name = choice.name.trim().takeIf(String::isNotEmpty)

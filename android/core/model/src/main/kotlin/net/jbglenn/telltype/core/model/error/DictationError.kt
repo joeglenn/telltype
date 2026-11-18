@@ -165,7 +165,10 @@ public data object ServerNotConfigured : NetworkError {
     override val fix: FixTarget get() = FixTarget.SERVER_SETUP
 }
 
-/** "Saved. Will transcribe later": no address answered in time, after one retry and failover to every address. */
+/**
+ * "Server not answering. Saved for later": no address answered in time, after one retry and failover to every
+ * address.
+ */
 public data object ServerUnreachable : NetworkError {
     override val code: String get() = "server_unreachable"
     override val keepsAudio: Boolean get() = true

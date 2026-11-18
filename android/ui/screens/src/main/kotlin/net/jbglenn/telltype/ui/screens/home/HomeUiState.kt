@@ -10,6 +10,8 @@ import net.jbglenn.telltype.core.model.data.HistoryEntry
 import net.jbglenn.telltype.core.model.error.FixTarget
 import net.jbglenn.telltype.core.model.settings.ServerReachability
 import net.jbglenn.telltype.core.model.system.PermissionStatus
+import net.jbglenn.telltype.ui.designsystem.error.ServerCause
+import net.jbglenn.telltype.ui.designsystem.error.serverCause
 import net.jbglenn.telltype.ui.screens.R
 
 /**
@@ -57,8 +59,26 @@ enum class HomeProblem(@param:StringRes val message: Int, val fix: FixTarget?, v
     /** Android 17 blocks the home-network address. */
     LOCAL_NETWORK_DENIED(R.string.home_problem_local_network, FixTarget.LOCAL_NETWORK_PERMISSION, blocking = true),
 
-    /** The last probe failed; recordings are queued meanwhile. */
-    SERVER_UNREACHABLE(R.string.home_problem_server_unreachable, fix = null, blocking = false),
+    /** The last probe got no answer; recordings are queued meanwhile. */
+    SERVER_UNREACHABLE(ServerCause.UNREACHABLE.message, fix = null, blocking = false),
+
+    /** The server rejected the key (HTTP 401): Fix opens Setup. */
+    SERVER_KEY_REJECTED(ServerCause.KEY_REJECTED.message, FixTarget.SERVER_SETUP, blocking = true),
+
+    /** The server's certificate is not the confirmed one: Fix opens Setup. */
+    SERVER_CERTIFICATE_CHANGED(ServerCause.CERTIFICATE_CHANGED.message, FixTarget.SERVER_SETUP, blocking = true),
+
+    /** The server does not offer the chosen model. */
+    SERVER_MODEL_MISSING(ServerCause.MODEL_MISSING.message, fix = null, blocking = false),
+
+    /** The server answers but is still loading its models. */
+    SERVER_WARMING_UP(ServerCause.WARMING_UP.message, fix = null, blocking = false),
+
+    /** The server answered with an error. */
+    SERVER_ERROR(ServerCause.SERVER_ERROR.message, fix = null, blocking = false),
+
+    /** The server refused the check as such (app and server versions do not fit). */
+    SERVER_REQUEST_REFUSED(ServerCause.REQUEST_REFUSED.message, fix = null, blocking = false),
 
     /** Advanced Protection limits accessibility services; text arrives through clipboard and History. */
     ADVANCED_PROTECTION(R.string.home_problem_advanced_protection, fix = null, blocking = true),
@@ -136,8 +156,26 @@ fun homeProblems(
     if (!permissions.microphoneGranted) add(HomeProblem.MICROPHONE_DENIED)
     if (!serverConfigured) add(HomeProblem.SERVER_NOT_SET_UP)
     if (!permissions.localNetworkGranted) add(HomeProblem.LOCAL_NETWORK_DENIED)
-    if (serverConfigured && reachability is ServerReachability.Unreachable) add(HomeProblem.SERVER_UNREACHABLE)
+    if (serverConfigured && reachability is ServerReachability.Unreachable) {
+        add(reachability.error.serverCause().homeProblem())
+    }
     if (!permissions.notificationsGranted) add(HomeProblem.NOTIFICATIONS_OFF)
+}.distinct()
+
+/**
+ * The status card's problem for a failed server check: the same [ServerCause] the bubble, Settings and Diagnostics
+ * name (B9). Exhaustive, so a new cause needs a Home problem.
+ */
+fun ServerCause.homeProblem(): HomeProblem = when (this) {
+    ServerCause.NOT_SET_UP -> HomeProblem.SERVER_NOT_SET_UP
+    ServerCause.LOCAL_NETWORK_OFF -> HomeProblem.LOCAL_NETWORK_DENIED
+    ServerCause.UNREACHABLE -> HomeProblem.SERVER_UNREACHABLE
+    ServerCause.KEY_REJECTED -> HomeProblem.SERVER_KEY_REJECTED
+    ServerCause.CERTIFICATE_CHANGED -> HomeProblem.SERVER_CERTIFICATE_CHANGED
+    ServerCause.MODEL_MISSING -> HomeProblem.SERVER_MODEL_MISSING
+    ServerCause.WARMING_UP -> HomeProblem.SERVER_WARMING_UP
+    ServerCause.SERVER_ERROR -> HomeProblem.SERVER_ERROR
+    ServerCause.REQUEST_REFUSED -> HomeProblem.SERVER_REQUEST_REFUSED
 }
 
 /**

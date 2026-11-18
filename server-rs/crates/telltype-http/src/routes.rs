@@ -87,7 +87,8 @@ async fn healthz(State(state): State<AppState>, Extension(context): Context) -> 
 
 async fn models(State(state): State<AppState>) -> Json<Value> {
     let mut data = vec![json!({
-        "id": state.speech_model, "object": "model", "created": 0, "owned_by": "telltype"
+        "id": state.speech_model, "object": "model", "created": 0, "owned_by": "telltype",
+        "telltype": {"roles": ["speech"]}
     })];
     data.extend(state.upstreams.models().await.data);
     Json(json!({"object": "list", "data": data}))

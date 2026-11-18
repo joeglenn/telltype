@@ -169,7 +169,6 @@
   <string name="home_problem_microphone">Microphone permission is off</string>
   <string name="home_problem_notifications">Notifications are off, so queued results can\'t be shown</string>
   <string name="home_problem_server_setup">Your server is not set up yet</string>
-  <string name="home_problem_server_unreachable">Your server is not answering. Recordings are kept for later</string>
   <string name="home_ready_body">The bubble appears when you type in another app.</string>
   <string name="home_ready_title">Ready to dictate</string>
   <string name="home_recent">Recent</string>

@@ -641,4 +641,20 @@ async fn models_lists_speech_and_upstream_ids_without_aliases() {
         ids,
         ["model-stt", "model-cleanup", "qwen3.5-4b-q4_k_m", "gemma-4-12b"]
     );
+    let roles: Vec<_> = body["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["telltype"]["roles"].clone())
+        .collect();
+    assert_eq!(
+        roles,
+        [
+            serde_json::json!(["speech"]),
+            serde_json::json!(["cleanup"]),
+            serde_json::json!(["commands"]),
+            serde_json::json!(["commands"])
+        ],
+        "every entry says which role it serves"
+    );
 }

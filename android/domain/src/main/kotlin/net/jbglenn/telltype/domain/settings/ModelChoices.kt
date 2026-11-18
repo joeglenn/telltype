@@ -1,5 +1,6 @@
 package net.jbglenn.telltype.domain.settings
 
+import net.jbglenn.telltype.core.model.settings.ModelRole
 import net.jbglenn.telltype.core.model.settings.OfferedModel
 import net.jbglenn.telltype.core.model.settings.ServerModels
 
@@ -29,8 +30,7 @@ public object ModelChoices {
     private val Qwen4 = Regex("qwen3${SEP}5${SEP}4b(?![0-9])")
     private val Gemma12 = Regex("gemma${SEP}4${SEP}12b(?![0-9])")
     private val GemmaE4 = Regex("gemma${SEP}4${SEP}e4b(?![0-9])")
-    private val SpeechNames =
-        Regex("whisper|parakeet|canary|moonshine|sensevoice|transcri|speech|(^|[^a-z])(stt|asr)([^a-z]|$)")
+    private val Qwen9 = Regex("qwen3${SEP}5${SEP}9b(?![0-9])")
 
     /** Whether [model] carries "(Recommended)" in the command list (D58). */
     public fun isRecommended(model: OfferedModel): Boolean = model.names().any { name ->
@@ -41,25 +41,57 @@ public object ModelChoices {
     public fun isRecommendedCleanup(model: OfferedModel): Boolean = model.names().any { GemmaE4.containsMatchIn(it) }
 
     /**
-     * The default cleanup model: [serverCleanup] (the model Telltype Server's `/healthz` reports for cleanup)
-     * when listed, else the recommended cleanup model, else the first listed; null for an empty list.
+     * Which recommended kind [model] is in [role]'s list (one "(Recommended)" per kind): `gemma-4-e4b` for cleanup;
+     * `qwen3.5-4b`, `qwen3.5-9b` or `gemma-4-12b-qat` for commands; null when it is not recommended there.
      */
-    public fun defaultCleanup(models: List<OfferedModel>, serverCleanup: String?): String? = (
-        models.firstOrNull { serverCleanup != null && it.id == serverCleanup }
-            ?: models.firstOrNull(::isRecommendedCleanup)
-            ?: models.firstOrNull()
-        )?.id
+    public fun recommendedKind(model: OfferedModel, role: ModelRole): String? {
+        val names = model.names()
+        fun has(regex: Regex) = names.any { regex.containsMatchIn(it) }
+        return when (role) {
+            ModelRole.SPEECH -> null
 
-    /** The default command model: Qwen3.5 4B when listed, else the first recommended, else the first listed. */
-    public fun defaultCommand(models: List<OfferedModel>): String? = (
-        models.firstOrNull { model -> model.names().any { Qwen4.containsMatchIn(it) } }
-            ?: models.firstOrNull(::isRecommended)
-            ?: models.firstOrNull()
-        )?.id
+            ModelRole.CLEANUP -> "gemma-4-e4b".takeIf { has(GemmaE4) }
 
-    /** The default speech model: the first whose name says speech (`whisper`, `parakeet`, …), else null. */
-    public fun defaultSpeech(models: List<OfferedModel>?): String? =
-        models?.firstOrNull { SpeechNames.containsMatchIn(it.id.lowercase()) }?.id
+            ModelRole.COMMANDS -> when {
+                has(Qwen4) -> "qwen3.5-4b"
+                has(Qwen9) -> "qwen3.5-9b"
+                isRecommended(model) -> "gemma-4-12b-qat"
+                else -> null
+            }
+        }
+    }
+
+    /**
+     * The default cleanup model among the cleanup models of [models] ([ModelRoles.forRole]): [serverCleanup] (the
+     * model Telltype Server's `/healthz` reports for cleanup) when listed, else the recommended cleanup model, else
+     * the first listed; null for an empty list.
+     */
+    public fun defaultCleanup(models: List<OfferedModel>, serverCleanup: String?): String? =
+        ModelRoles.forRole(models, ModelRole.CLEANUP).let { candidates ->
+            (
+                candidates.firstOrNull { serverCleanup != null && it.id == serverCleanup }
+                    ?: candidates.firstOrNull(::isRecommendedCleanup)
+                    ?: candidates.firstOrNull()
+                )?.id
+        }
+
+    /**
+     * The default command model among the command models of [models]: Qwen3.5 4B when listed, else the first
+     * recommended, else the first listed.
+     */
+    public fun defaultCommand(models: List<OfferedModel>): String? =
+        ModelRoles.forRole(models, ModelRole.COMMANDS).let { candidates ->
+            (
+                candidates.firstOrNull { model -> model.names().any { Qwen4.containsMatchIn(it) } }
+                    ?: candidates.firstOrNull(::isRecommended)
+                    ?: candidates.firstOrNull()
+                )?.id
+        }
+
+    /** The default speech model: the first the server lists for speech or whose name says speech, else null. */
+    public fun defaultSpeech(models: List<OfferedModel>?): String? = models
+        ?.firstOrNull { model -> model.roles?.let { ModelRole.SPEECH in it } ?: ModelRoles.isSpeechName(model) }
+        ?.id
 
     /**
      * How a model name is shown: an absolute file path (llama.cpp's id without an alias) by its file name, and a

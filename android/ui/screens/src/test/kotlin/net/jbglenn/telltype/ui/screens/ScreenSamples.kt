@@ -220,6 +220,11 @@ internal object ScreenSamples {
                 ),
             ),
         ),
+        "home_key_rejected" to home(readyHome.copy(problems = listOf(HomeProblem.SERVER_KEY_REJECTED))),
+        "home_certificate_changed" to home(
+            readyHome.copy(problems = listOf(HomeProblem.SERVER_CERTIFICATE_CHANGED)),
+        ),
+        "home_server_error" to home(readyHome.copy(problems = listOf(HomeProblem.SERVER_ERROR))),
         "home_new" to home(
             HomeUiState(loading = false, problems = listOf(HomeProblem.SERVER_NOT_SET_UP), zone = zone),
         ),

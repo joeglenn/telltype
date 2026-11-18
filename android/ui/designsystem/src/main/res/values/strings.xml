@@ -10,7 +10,7 @@
   <string name="error_storage_full">Storage is full</string>
   <string name="error_storage_failed">Couldn\'t save. Will try later</string>
   <string name="error_server_not_configured">Set up your server first</string>
-  <string name="error_server_unreachable">Saved. Will transcribe later</string>
+  <string name="error_server_unreachable">Server not answering. Saved for later</string>
   <string name="error_certificate_mismatch">The server\'s certificate changed</string>
   <string name="error_key_rejected">The server rejected the key</string>
   <string name="error_server_warming_up">The server is warming up</string>
@@ -41,5 +41,7 @@
   <string name="error_model_not_found">Your server does not offer the chosen model. Choose one in Settings, Models</string>
   <string name="connection_unreachable">Couldn\'t reach the server at this address. Check the address, this phone\'s connection, and the VPN if your server needs one.</string>
   <string name="connection_server_error">The server answered with an error. Check that your server is running.</string>
+  <string name="connection_key_rejected">The server rejected the key. Enter the key your server shows, in Setup.</string>
+  <string name="connection_certificate_changed">The server\'s certificate changed. Confirm the new one in Setup only if you changed it on your server.</string>
   <string name="connection_rejected">The server refused the request. Update the app or the server.</string>
 </resources>

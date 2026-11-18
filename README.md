@@ -130,8 +130,8 @@ encrypted with a key held in the Android Keystore. Details: [PRIVACY.md](PRIVACY
 [latest release](https://github.com/joeglenn/telltype/releases/latest) and check it before installing:
 
 ```sh
-sha256sum -c telltype-1.0.0.apk.sha256               # the checksum file is attached to the same release
-apksigner verify --print-certs telltype-1.0.0.apk    # optional (Android SDK build-tools)
+sha256sum -c telltype-1.0.1.apk.sha256               # the checksum file is attached to the same release
+apksigner verify --print-certs telltype-1.0.1.apk    # optional (Android SDK build-tools)
 ```
 
 Every release is signed with the same key. Its certificate's SHA-256 is

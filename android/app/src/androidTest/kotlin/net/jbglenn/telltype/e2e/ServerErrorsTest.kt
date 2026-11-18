@@ -45,7 +45,7 @@ class ServerErrorsTest {
         Scenario.dictate()
         val state = Bubble.expectState("Problem", limit = Scenario.LONG_WAIT_MS)
         Device.screenshot("et-unreachable")
-        assertEquals("Problem. Saved. Will transcribe later", state)
+        assertEquals("Problem. Server not answering. Saved for later", state)
         assertEquals("one dictation queued", queuedBefore + 1, Arrange.pendingJobs().size)
         assertTrue("the recording is kept", Device.recordings().isNotEmpty())
         Scenario.assertNotTyped()

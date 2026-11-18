@@ -49,7 +49,7 @@ class StubGateTest {
         Device.screenshot("et-warming-up-then-typed")
         Log.i(TAG, "warming up: states seen $seen")
         assertTrue("the text arrived after the 503", typed)
-        assertTrue("never shown as queued: $seen", seen.none { it.contains("Will transcribe later") })
+        assertTrue("never shown as queued: $seen", seen.none { it.contains("Saved for later") })
     }
 
     @Test

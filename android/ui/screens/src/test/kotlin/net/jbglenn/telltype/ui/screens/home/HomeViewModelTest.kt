@@ -4,6 +4,7 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.test.runTest
 import net.jbglenn.telltype.core.model.error.FixTarget
+import net.jbglenn.telltype.core.model.error.KeyRejected
 import net.jbglenn.telltype.core.model.error.ServerUnreachable
 import net.jbglenn.telltype.core.model.error.StorageFailed
 import net.jbglenn.telltype.core.model.settings.CertificateFingerprint
@@ -18,6 +19,7 @@ import net.jbglenn.telltype.testing.FakePermissionStatusSource
 import net.jbglenn.telltype.testing.FakeServerHealthSource
 import net.jbglenn.telltype.testing.FakeSettingsRepository
 import net.jbglenn.telltype.testing.Fixtures
+import net.jbglenn.telltype.ui.designsystem.R as DesignR
 import net.jbglenn.telltype.ui.screens.FixedLocalTime
 import net.jbglenn.telltype.ui.screens.MainDispatcherRule
 import net.jbglenn.telltype.ui.screens.R
@@ -88,6 +90,24 @@ class HomeViewModelTest {
 
         assertEquals(2, health.probeCall.calls.size)
         assertFalse(vm.state.value.checkingServer)
+    }
+
+    @Test
+    fun rejectedKeyIsNamedAsSuchNotAsUnreachableAndFixOpensSetup() = runTest {
+        configure()
+        health.probeCall.returns(ServerReachability.Unreachable(KeyRejected, Fixtures.Epoch))
+        val vm = viewModel()
+        keepCollecting(vm.state)
+        val effects = collectInto(vm.effects)
+
+        vm.onAction(HomeAction.Resumed)
+        val problems = vm.state.value.problems
+        assertTrue(HomeProblem.SERVER_KEY_REJECTED in problems)
+        assertFalse(HomeProblem.SERVER_UNREACHABLE in problems)
+        assertEquals(DesignR.string.error_key_rejected, HomeProblem.SERVER_KEY_REJECTED.message)
+        vm.onAction(HomeAction.Fix(HomeProblem.SERVER_KEY_REJECTED))
+
+        assertEquals(listOf(HomeEffect.OpenSetup), effects)
     }
 
     @Test

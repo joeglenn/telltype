@@ -346,3 +346,48 @@ async fn an_alias_to_the_real_name_reaches_an_upstream_still_serving_the_alias_i
     let forwarded: Value = serde_json::from_slice(&cleanup.seen()[1].1).unwrap();
     assert_eq!(forwarded["model"], "cleanup");
 }
+
+#[tokio::test]
+async fn a_router_preset_of_the_cleanup_file_is_listed_once_and_routes_to_cleanup() {
+    let (set, cleanup, commands) = pair().await;
+    cleanup.set(|s| s.props_model_path = Some("/no/such/e4b.gguf".to_owned()));
+    commands.set(|s| {
+        s.models = vec!["qwen3.5-4b".to_owned(), "e4b_q4_0-it".to_owned()];
+        s.model_files = BTreeMap::from([
+            ("qwen3.5-4b".to_owned(), "/no/such/q4.gguf".to_owned()),
+            ("e4b_q4_0-it".to_owned(), "/no/such/e4b.gguf".to_owned()),
+        ]);
+    });
+    let list = set.models().await;
+    let listed: Vec<_> = list
+        .data
+        .iter()
+        .map(|d| {
+            (
+                d["id"].as_str().unwrap().to_owned(),
+                d["telltype"]["roles"].clone(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            ("model-cleanup".to_owned(), json!(["cleanup", "commands"])),
+            ("qwen3.5-4b".to_owned(), json!(["commands"])),
+        ]
+    );
+    assert_eq!(
+        list.per_role[1].1,
+        Some(vec!["qwen3.5-4b".to_owned(), "model-cleanup".to_owned()])
+    );
+    set.chat(chat_body("e4b_q4_0-it"), "r").await.unwrap();
+    assert!(
+        commands.seen().is_empty(),
+        "the duplicate name never loads the file twice"
+    );
+    let forwarded: Value = serde_json::from_slice(&cleanup.seen()[0].1).unwrap();
+    assert_eq!(
+        forwarded["model"], "cleanup",
+        "renamed to what the cleanup upstream serves"
+    );
+}

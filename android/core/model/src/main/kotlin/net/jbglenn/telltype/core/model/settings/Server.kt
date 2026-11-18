@@ -202,8 +202,32 @@ public data class OfferedModels(public val speech: List<OfferedModel>?, public v
  *
  * @property id the name to send as `model`.
  * @property file the model file the server names for it (llama.cpp's `path`), null when it names none.
+ * @property roles what the server says the model is for (Telltype Server's `telltype.roles`); null when the server
+ *   does not say, and the app judges by the name.
  */
-public data class OfferedModel(public val id: String, public val file: String? = null)
+public data class OfferedModel(
+    public val id: String,
+    public val file: String? = null,
+    public val roles: Set<ModelRole>? = null,
+)
+
+/** What a listed model can be used for, as Telltype Server's `telltype.roles` names it. */
+public enum class ModelRole(public val wireName: String) {
+    /** Transcription (`speech`). */
+    SPEECH("speech"),
+
+    /** Cleanup of dictated text (`cleanup`). */
+    CLEANUP("cleanup"),
+
+    /** Command Mode (`commands`). */
+    COMMANDS("commands"),
+    ;
+
+    public companion object {
+        /** The role of [name], or null for a name this build does not know. */
+        public fun fromWire(name: String): ModelRole? = entries.firstOrNull { it.wireName == name }
+    }
+}
 
 /** The latest known state of the connection to the server, for the "offline" mark and Diagnostics. */
 public sealed interface ServerReachability {

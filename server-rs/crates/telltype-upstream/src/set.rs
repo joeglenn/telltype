@@ -9,6 +9,8 @@ use tokio::sync::Semaphore;
 
 use crate::error::UpstreamError;
 
+mod listing;
+
 /// One upstream as configured.
 #[derive(Debug, Clone)]
 pub struct UpstreamSpec {
@@ -77,9 +79,11 @@ pub struct Probe {
 /// The merged `/v1/models` of all upstreams.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelList {
-    /// `OpenAI` model objects: every upstream's entries (first id wins); alias names are not listed.
+    /// `OpenAI` model objects: every upstream's entries (first id wins), each with `telltype.roles`;
+    /// alias names are not listed, and a model file another upstream already serves is listed once.
     pub data: Vec<Value>,
-    /// Per role, the ids that upstream listed, or `None` when it could not be asked.
+    /// Per role, the ids that upstream offers (a duplicate file under the id that is listed), or
+    /// `None` when it could not be asked.
     pub per_role: Vec<(String, Option<Vec<String>>)>,
 }
 
@@ -94,6 +98,8 @@ pub struct Upstreams {
     pub(crate) list: Vec<Upstream>,
     pub(crate) client: reqwest::Client,
     pub(crate) health_timeout: Duration,
+    /// A listed-twice id (the same model file under another upstream) -> the id that is listed.
+    duplicates: RwLock<BTreeMap<String, String>>,
 }
 
 impl Upstreams {
@@ -116,6 +122,7 @@ impl Upstreams {
             list,
             client,
             health_timeout,
+            duplicates: RwLock::new(BTreeMap::new()),
         })
     }
 
@@ -143,27 +150,28 @@ impl Upstreams {
     /// Ask every upstream for its models and merge the lists. Also refreshes the routing cache.
     pub async fn models(&self) -> ModelList {
         let fetched = futures_util::future::join_all(self.list.iter().map(|u| self.fetch_models(u))).await;
-        let mut data: Vec<Value> = Vec::new();
-        let mut per_role = Vec::new();
-        for (upstream, entries) in self.list.iter().zip(fetched) {
-            let ids = entries.as_ref().map(|entries| {
-                entries
-                    .iter()
-                    .filter_map(|e| e.get("id").and_then(Value::as_str).map(str::to_owned))
-                    .collect()
-            });
-            per_role.push((upstream.spec.role.clone(), ids));
-            for entry in entries.unwrap_or_default() {
-                let id = entry.get("id").and_then(Value::as_str);
-                if id.is_some() && !data.iter().any(|d| d.get("id").and_then(Value::as_str) == id) {
-                    data.push(entry);
-                }
-            }
+        let listed = self
+            .list
+            .iter()
+            .zip(fetched)
+            .map(|(upstream, entries)| listing::Listed {
+                role: upstream.spec.role.clone(),
+                entries,
+            })
+            .collect();
+        let merged = listing::merge(listed);
+        if let Ok(mut duplicates) = self.duplicates.write() {
+            *duplicates = merged.duplicates;
         }
-        ModelList { data, per_role }
+        ModelList {
+            data: merged.data,
+            per_role: merged.per_role,
+        }
     }
 
-    async fn fetch_models(&self, upstream: &Upstream) -> Option<Vec<Value>> {
+    /// The upstream's entries, each with the model file it runs when that can be found: from a
+    /// router preset's arguments, or for an upstream with one model from llama-server's `/props`.
+    async fn fetch_models(&self, upstream: &Upstream) -> Option<Vec<(Value, Option<String>)>> {
         let (status, body) = self.get(&upstream.spec.url, "/v1/models").await?;
         if status != 200 {
             return None;
@@ -190,7 +198,26 @@ impl Upstreams {
         if let Ok(mut listed) = upstream.listed.write() {
             *listed = ids;
         }
-        Some(entries)
+        let mut files: Vec<Option<String>> = entries.iter().map(listing::file_from_args).collect();
+        if let [only] = files.as_mut_slice()
+            && only.is_none()
+        {
+            *only = self.served_file(&upstream.spec.url).await;
+        }
+        Some(entries.into_iter().zip(files).collect())
+    }
+
+    /// The model file a single-model llama-server runs (`model_path` of its `/props`).
+    async fn served_file(&self, base: &str) -> Option<String> {
+        let (status, body) = self.get(base, "/props").await?;
+        if status != 200 {
+            return None;
+        }
+        let props: Value = serde_json::from_slice(&body).ok()?;
+        props
+            .get("model_path")
+            .and_then(Value::as_str)
+            .map(listing::normalise)
     }
 
     async fn get(&self, base: &str, path: &str) -> Option<(u16, bytes::Bytes)> {
@@ -230,6 +257,17 @@ impl Upstreams {
     }
 
     fn route_known(&self, model: &str) -> Option<Route> {
+        let kept = self
+            .duplicates
+            .read()
+            .ok()
+            .and_then(|duplicates| duplicates.get(model).cloned());
+        if let Some(kept) = kept {
+            // The same file under the name that is listed: send it there, renamed.
+            let mut route = self.route_listed(&kept)?;
+            route.rewrite = Some(route.rewrite.unwrap_or(kept));
+            return Some(route);
+        }
         for (index, upstream) in self.list.iter().enumerate() {
             if let Some(target) = upstream.spec.aliases.get(model) {
                 let target = upstream.upstream_id(target);
@@ -240,6 +278,10 @@ impl Upstreams {
                 });
             }
         }
+        self.route_listed(model)
+    }
+
+    fn route_listed(&self, model: &str) -> Option<Route> {
         let upstream = self
             .list
             .iter()

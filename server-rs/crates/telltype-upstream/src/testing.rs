@@ -1,6 +1,7 @@
-//! A fake `llama-server` for tests (feature `test-support`): `/health`, `/v1/models` and
+//! A fake `llama-server` for tests (feature `test-support`): `/health`, `/v1/models`, `/props` and
 //! `/v1/chat/completions` with controllable replies, recording what it was sent.
 
+use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -32,6 +33,10 @@ pub struct FakeState {
     pub chat_delay: Duration,
     pub models: Vec<String>,
     pub models_status: u16,
+    /// Model id -> file, reported like a router-mode llama-server (`status.args` with `--model`).
+    pub model_files: BTreeMap<String, String>,
+    /// `model_path` of `/props`, like a single-model llama-server; `None` answers 404.
+    pub props_model_path: Option<String>,
     pub chat: ChatBehaviour,
     pub seen: Vec<(HeaderMap, Bytes)>,
 }
@@ -53,12 +58,15 @@ impl FakeUpstream {
             chat_delay: Duration::ZERO,
             models: models.iter().map(|m| (*m).to_owned()).collect(),
             models_status: 200,
+            model_files: BTreeMap::new(),
+            props_model_path: None,
             chat: ChatBehaviour::Ok,
             seen: Vec::new(),
         }));
         let app = Router::new()
             .route("/health", get(health))
             .route("/v1/models", get(models_route))
+            .route("/props", get(props))
             .route("/v1/chat/completions", post(chat))
             .with_state(Arc::clone(&state));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
@@ -119,15 +127,33 @@ async fn health(State(state): Shared) -> Response {
 }
 
 async fn models_route(State(state): Shared) -> Response {
-    let Some((models, status)) = snapshot(&state, |s| (s.models.clone(), s.models_status)) else {
+    let Some((models, status, files)) = snapshot(&state, |s| {
+        (s.models.clone(), s.models_status, s.model_files.clone())
+    }) else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
     let data: Vec<serde_json::Value> = models
         .iter()
-        .map(|m| serde_json::json!({"id": m, "object": "model", "owned_by": "llamacpp"}))
+        .map(|m| {
+            let mut entry = serde_json::json!({"id": m, "object": "model", "owned_by": "llamacpp"});
+            if let Some(file) = files.get(m) {
+                entry["status"] =
+                    serde_json::json!({"value": "unloaded", "args": ["llama-server", "--model", file]});
+            }
+            entry
+        })
         .collect();
     let body = serde_json::json!({"object": "list", "data": data}).to_string();
     (StatusCode::from_u16(status).unwrap_or(StatusCode::OK), body).into_response()
+}
+
+async fn props(State(state): Shared) -> Response {
+    match snapshot(&state, |s| s.props_model_path.clone()).flatten() {
+        Some(path) => serde_json::json!({"model_path": path})
+            .to_string()
+            .into_response(),
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 async fn chat(State(state): Shared, headers: HeaderMap, body: Bytes) -> Response {

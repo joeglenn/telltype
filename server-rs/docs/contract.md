@@ -1,7 +1,7 @@
 # Telltype Server: HTTP contract
 
 What a client can rely on. It is a superset of the OpenAI API for the three routes the Telltype app
-uses, plus `/healthz`. This describes version 1.0.0.
+uses, plus `/healthz`. This describes version 1.0.1.
 
 ## Common
 
@@ -25,14 +25,14 @@ uses, plus `/healthz`. This describes version 1.0.0.
 ```json
 {
   "status": "ok",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "stt":       { "ready": true, "model": "parakeet-unified-en-0.6b-int8", "engine": "sherpa-onnx" },
   "cleanup":   { "ready": true, "model": "gemma-4-e4b-it-qat-q4_0" },
   "assistant": { "ready": true, "model": "qwen_qwen3.5-4b-q4_k_m" },
   "models": {
     "speech":   ["parakeet-unified-en-0.6b-int8"],
     "cleanup":  ["gemma-4-e4b-it-qat-q4_0"],
-    "commands": ["gemma-4-e4b_q4_0-it", "qwen_qwen3.5-4b-q4_k_m", "qwen_qwen3.5-9b-q4_k_m"]
+    "commands": ["gemma-4-e4b-it-qat-q4_0", "qwen_qwen3.5-4b-q4_k_m", "qwen_qwen3.5-9b-q4_k_m"]
   }
 }
 ```
@@ -44,9 +44,10 @@ uses, plus `/healthz`. This describes version 1.0.0.
 - `cleanup` and `assistant` (the commands upstream; the name is the one today's app reads) are ready
   when their health route answered 200 within the probe timeout. Without a commands upstream,
   `assistant` is `{"ready": false, "model": ""}`. `model` is the configured name.
-- `models`: the model ids each upstream lists in its own `/v1/models`, or `null` when it could
-  not be asked; `speech` is the recogniser's name. Clients pick cleanup and Command Mode models from
-  these lists.
+- `models`: the model ids each upstream offers, as `GET /v1/models` lists them (a model file that an
+  earlier upstream already serves appears under that upstream's name), or `null` when the upstream
+  could not be asked; `speech` is the recogniser's name. Clients pick cleanup and Command Mode
+  models from these lists.
 
 ## `GET /v1/models`
 
@@ -55,6 +56,25 @@ speech model (`owned_by: "telltype"`), then every upstream's entries as the upst
 (first id wins). Only real model ids are listed: configured aliases are not, and an upstream entry
 whose id is one of its role's aliases (llama-server started with `--alias cleanup`) is listed under
 the role's configured `model` name, without its `aliases` field.
+
+Every entry has one field that stock OpenAI clients ignore (since 1.0.1):
+
+```json
+{"id": "gemma-4-e4b-it-qat-q4_0", "object": "model", "owned_by": "llamacpp",
+ "telltype": {"roles": ["cleanup", "commands"]}}
+```
+
+`telltype.roles` lists the roles that can run the model: `speech` (the recogniser), and the name of
+each text upstream that offers it (`cleanup`, `commands`). A client shows a model only in the lists
+of its roles.
+
+**One entry per model file.** The server finds the file behind an entry from the `--model` argument
+a router-mode llama-server reports for each preset (`status.args`), or from `/props` (`model_path`)
+of an upstream that lists one model. When a later upstream offers a file an earlier one already
+serves (the commands router's preset of the cleanup model), that entry is not listed: the earlier
+entry gains the role, and a request naming the dropped id is sent to the earlier upstream under the
+listed name, so the file is never loaded twice. Upstreams are taken in the order cleanup, commands.
+Two presets of the same upstream that share a file (deliberately different settings) both stay.
 
 ## `POST /v1/audio/transcriptions`
 
@@ -78,7 +98,8 @@ the same plus `"language": "en"` (the engine gives no segments); `text` → the 
 
 OpenAI chat format, at most `max_json_bytes` (1 MiB).
 
-- `model` (non-empty string) selects the upstream: any id `GET /v1/models` lists. Unknown: 400.
+- `model` (non-empty string) selects the upstream: any id `GET /v1/models` lists, or an id it
+  leaves out as a duplicate of a listed model file (routed as that listed id). Unknown: 400.
 - **Deprecated:** the alias names `cleanup` and `assistant` (whatever `aliases` configures) are still
   accepted, so installed apps from before 1.0.0 keep working, and route to the configured model.
   They are not listed and may be removed in a later version; send a listed id instead.

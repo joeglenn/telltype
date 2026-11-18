@@ -4,12 +4,14 @@ import androidx.annotation.StringRes
 import net.jbglenn.telltype.core.model.error.NetworkError
 import net.jbglenn.telltype.core.model.error.RequestRejected
 import net.jbglenn.telltype.core.model.error.ServerNotConfigured
+import net.jbglenn.telltype.core.model.settings.ModelRole
 import net.jbglenn.telltype.core.model.settings.ServerCheck
 import net.jbglenn.telltype.core.model.settings.ServerCheckMethod
 import net.jbglenn.telltype.core.model.settings.ServerConfig
 import net.jbglenn.telltype.core.model.settings.ServerModels
 import net.jbglenn.telltype.core.model.settings.ServerRole
 import net.jbglenn.telltype.domain.settings.ModelChoices
+import net.jbglenn.telltype.domain.settings.ModelRoles
 import net.jbglenn.telltype.ui.designsystem.error.connectionMessageRes
 import net.jbglenn.telltype.ui.screens.R
 
@@ -18,20 +20,26 @@ import net.jbglenn.telltype.ui.screens.R
  * server still lists it (the deprecated `cleanup` and `assistant` names are not listed any more, so they are
  * replaced); otherwise cleanup takes [ModelChoices.defaultCleanup] (the model Telltype Server's `/healthz` reports
  * for cleanup, else Gemma 4 E4B, else the first listed), commands [ModelChoices.defaultCommand] and speech
- * [ModelChoices.defaultSpeech] (null: `whisper-1` is sent).
+ * [ModelChoices.defaultSpeech] (null: `whisper-1` is sent). A previous choice counts as listed only in its own
+ * role's list ([ModelRoles.forRole]), so a speech model never stays chosen for cleanup.
  */
 internal fun chooseModels(previous: ServerModels, speech: ServerCheck, text: ServerCheck): ServerModels {
     val textModels = text.models
+    val speechModels = speech.models
     return ServerModels(
-        speech = ModelChoices.keepIfListed(previous.speech, speech.models, ModelChoices.defaultSpeech(speech.models)),
+        speech = ModelChoices.keepIfListed(
+            previous.speech,
+            speechModels?.let { ModelRoles.forRole(it, ModelRole.SPEECH) },
+            ModelChoices.defaultSpeech(speechModels),
+        ),
         cleanup = ModelChoices.keepIfListed(
             previous.cleanup,
-            textModels,
+            textModels?.let { ModelRoles.forRole(it, ModelRole.CLEANUP) },
             textModels?.let { ModelChoices.defaultCleanup(it, (text.health ?: speech.health)?.cleanup?.model) },
         ),
         command = ModelChoices.keepIfListed(
             previous.command,
-            textModels,
+            textModels?.let { ModelRoles.forRole(it, ModelRole.COMMANDS) },
             textModels?.let(ModelChoices::defaultCommand),
         ),
     )

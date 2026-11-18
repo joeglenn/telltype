@@ -14,7 +14,6 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import net.jbglenn.telltype.core.model.settings.BackendHealth
-import net.jbglenn.telltype.core.model.settings.OfferedModel
 import net.jbglenn.telltype.core.model.settings.ServerHealth
 import net.jbglenn.telltype.core.model.settings.ServerStatus
 import net.jbglenn.telltype.domain.cleanup.ChatPrompt
@@ -74,20 +73,6 @@ internal fun parseHealth(body: String): ServerHealth? {
     return ServerHealth(status, version, stt, cleanup, assistant)
 }
 
-/**
- * Parses `GET /v1/models`: OpenAI's `{"data":[{"id":"…"}]}` (llama.cpp adds the model file as `path`), or a
- * top-level `models` array whose entries name the model in `id`, `name` or `model`. Entries without a name are
- * skipped and repeated names kept once; null when the body is neither shape.
- */
-internal fun parseModelList(body: String): List<OfferedModel>? = parseObject(body)
-    ?.let { root -> (root["data"] as? JsonArray) ?: (root["models"] as? JsonArray) }
-    ?.mapNotNull { element ->
-        val entry = element as? JsonObject
-        val id = entry?.let { it.string("id") ?: it.string("name") ?: it.string("model") }
-        id?.takeIf(String::isNotBlank)?.let { OfferedModel(it, entry.string("path")?.substringAfterLast('/')) }
-    }
-    ?.distinctBy(OfferedModel::id)
-
 /** The `error.code` of an error body, or null. */
 internal fun parseErrorCode(body: String): String? = (parseObject(body)?.get("error") as? JsonObject)?.string("code")
 
@@ -120,9 +105,9 @@ private fun backend(element: JsonElement?): BackendHealth? {
     return if (ready == null || model == null) null else BackendHealth(ready, model, entry.string("engine"))
 }
 
-private fun JsonObject.string(name: String): String? = (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.content
+internal fun JsonObject.string(name: String): String? = (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
-private fun parseObject(body: String): JsonObject? = try {
+internal fun parseObject(body: String): JsonObject? = try {
     Json.parseToJsonElement(body) as? JsonObject
 } catch (_: SerializationException) {
     null
