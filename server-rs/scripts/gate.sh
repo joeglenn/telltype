@@ -5,6 +5,8 @@
 #                              (floor 85 %), cargo deny (licences, advisories, sources)
 #   SLOW=1 scripts/gate.sh     also the slow real-model test (needs TELLTYPE_PARAKEET_DIR)
 #
+# Starts with scripts/native.sh (the sherpa-onnx library, checked against its pinned SHA-256).
+#
 # Needs cargo-llvm-cov and cargo-deny (cargo install --locked cargo-llvm-cov cargo-deny) and the
 # llvm-tools-preview rustup component. Logs of each step: target/gate/<step>.log.
 set -uo pipefail
@@ -17,6 +19,8 @@ mkdir -p "$logs"
 
 summary=()
 failed=0
+# The native library first: the build uses only the copy checked against its pinned SHA-256.
+bash scripts/native.sh || { echo "GATE FAILED (native library)"; exit 1; }
 step() { # name command...
   local name=$1
   shift

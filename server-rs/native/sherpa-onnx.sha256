@@ -1,0 +1,5 @@
+# SHA-256 of the prebuilt sherpa-onnx static libraries (sherpa-onnx crate =2.0.1) that
+# scripts/native.sh downloads, checks and unpacks before any build. Update together with the
+# crate version in Cargo.toml; a mismatch stops the build.
+55cfadf65ba50d0afc1a802b7a337942819e51c94a5b5a384def1978f7c70871  sherpa-onnx-v2.0.1-linux-x64-static-lib.tar.bz2
+b6c6090e40fd18d6812f04fe21260602cd1223d7b5e83ad39dab87ad7c1c031d  sherpa-onnx-v2.0.1-linux-aarch64-static-lib.tar.bz2

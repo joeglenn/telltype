@@ -85,6 +85,11 @@ async fn one_log_line_per_request_without_secrets() {
         (field(0, "backend"), field(1, "backend"), field(2, "code")),
         (json!("speech"), json!("cleanup"), json!("unauthorized"))
     );
+    // The key's name, never the key.
+    assert_eq!(
+        (field(0, "key"), field(1, "key"), field(2, "key")),
+        (json!("tester"), json!("tester"), json!(""))
+    );
     assert!(entries.iter().all(|e| e["bytes_out"].as_u64().unwrap() > 0));
     assert!(field(0, "bytes_in").as_u64().unwrap() > 0);
     assert!(field(0, "timing").as_str().unwrap().starts_with("decode;dur="));

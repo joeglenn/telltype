@@ -4,7 +4,7 @@ use std::process::ExitCode;
 
 use telltype_config::Config;
 use telltype_server::{
-    Command, ServerError, credentials, fingerprint, parse_args, serve, sherpa_loader, usage,
+    Command, ServerError, credentials, fingerprint, keys, parse_args, serve, sherpa_loader, usage,
 };
 
 fn main() -> ExitCode {
@@ -36,6 +36,10 @@ fn main() -> ExitCode {
         } => Config::load(&config)
             .map_err(ServerError::from)
             .and_then(|c| credentials(&c, rotate_key, rotate_cert))
+            .map(|report| print!("{report}")),
+        Command::Keys { config, action } => Config::load(&config)
+            .map_err(ServerError::from)
+            .and_then(|c| keys(&c, &action))
             .map(|report| print!("{report}")),
         Command::Fingerprint { config } => Config::load(&config)
             .map_err(ServerError::from)

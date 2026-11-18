@@ -28,12 +28,42 @@ pub enum ReplyBody {
 }
 
 impl Upstreams {
-    /// Validate, route and forward one chat request.
+    /// Validate, route and forward one chat request (any role).
     pub async fn chat(&self, body: Bytes, request_id: &str) -> Result<ChatReply, UpstreamError> {
+        self.chat_as(body, request_id, None).await
+    }
+
+    /// Like [`Self::chat`] for a key limited to `roles`. A model that is not allowed (or only on
+    /// an upstream of another role) is [`UpstreamError::ModelNotFound`] before any upstream is
+    /// asked anything, so a router is never asked to load it.
+    pub async fn chat_as(
+        &self,
+        body: Bytes,
+        request_id: &str,
+        roles: Option<&[String]>,
+    ) -> Result<ChatReply, UpstreamError> {
         let request = ChatRequest::parse(&body)?;
+        let permitted = |role: &str| roles.is_none_or(|roles| roles.iter().any(|r| r == role));
+        let not_found = || {
+            UpstreamError::ModelNotFound(format!(
+                "model '{}' is not available here (GET /v1/models lists them)",
+                request.model
+            ))
+        };
+        if !self
+            .list
+            .iter()
+            .any(|u| permitted(&u.spec.role) && u.spec.allows(&request.model))
+        {
+            return Err(not_found());
+        }
         let route = self.route(&request.model).await?;
         let upstream = &self.list[route.upstream];
         let spec = &upstream.spec;
+        let target = route.rewrite.as_deref().unwrap_or(&request.model);
+        if !permitted(&spec.role) || !(spec.allows(&request.model) || spec.allows(target)) {
+            return Err(not_found());
+        }
         let forwarded = match &route.rewrite {
             None => body,
             Some(target) => request.with_model(target)?,
@@ -135,6 +165,11 @@ fn idle_limited(
         }
     })
     .boxed()
+}
+
+/// Check a chat request body as the server does before routing it (for fuzzing and tools).
+pub fn check_chat_request(body: &[u8]) -> Result<(), UpstreamError> {
+    ChatRequest::parse(body).map(|_| ())
 }
 
 /// The parts of an `OpenAI` chat request the server checks; everything else passes through.

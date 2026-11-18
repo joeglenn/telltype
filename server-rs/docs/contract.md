@@ -1,7 +1,7 @@
 # Telltype Server: HTTP contract
 
 What a client can rely on. It is a superset of the OpenAI API for the three routes the Telltype app
-uses, plus `/healthz`. This describes version 1.0.1.
+uses, plus `/healthz`. This describes version 1.1.0.
 
 ## Common
 
@@ -11,6 +11,15 @@ uses, plus `/healthz`. This describes version 1.0.1.
   `Authorization: Bearer <key>`. The scheme is case-insensitive; the key is compared in constant
   time. Missing or wrong: 401 `unauthorized` with `WWW-Authenticate: Bearer`, and nothing else
   happens.
+- **Limits per client address** (since 1.1; off for loopback, private LAN, Tailscale and Docker
+  addresses by default, see the README's `[limits]`): too many requests, or too many failed keys,
+  give 429 `rate_limited` with `Retry-After`; while blocked after failed keys no key is checked at
+  all. A request rejected before its body is read (rate limit, key, declared `Content-Length` over
+  the limit) is answered with `Connection: close` and the body is not read. A body that arrives
+  more slowly than the configured minimum rate gives 408 `request_timeout`.
+- **Keys limited to roles** (since 1.1): a key without the `speech` role gets 403 `forbidden` on
+  transcriptions; a chat model of a role the key lacks is 404 `model_not_found`; `/v1/models`
+  lists only the key's roles.
 - **Request id**: `X-Request-Id` (1 to 128 of `A-Za-z0-9._:-`) is echoed in the response and
   logged. A missing or malformed one is replaced by a random 32-hex-digit id, which is echoed.
 - **`Server-Timing`** on every response: stage durations in milliseconds, then `gate` (total time in
@@ -25,7 +34,7 @@ uses, plus `/healthz`. This describes version 1.0.1.
 ```json
 {
   "status": "ok",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "stt":       { "ready": true, "model": "parakeet-unified-en-0.6b-int8", "engine": "sherpa-onnx" },
   "cleanup":   { "ready": true, "model": "gemma-4-e4b-it-qat-q4_0" },
   "assistant": { "ready": true, "model": "qwen_qwen3.5-4b-q4_k_m" },
@@ -50,6 +59,8 @@ uses, plus `/healthz`. This describes version 1.0.1.
   models from these lists.
 
 ## `GET /v1/models`
+
+Only allowed models are listed (each text role's `allow` patterns, since 1.1).
 
 OpenAI format: `{"object": "list", "data": [{"id": ..., "object": "model", ...}, ...]}`. First the
 speech model (`owned_by: "telltype"`), then every upstream's entries as the upstream sent them
@@ -99,7 +110,8 @@ the same plus `"language": "en"` (the engine gives no segments); `text` → the 
 OpenAI chat format, at most `max_json_bytes` (1 MiB).
 
 - `model` (non-empty string) selects the upstream: any id `GET /v1/models` lists, or an id it
-  leaves out as a duplicate of a listed model file (routed as that listed id). Unknown: 400.
+  leaves out as a duplicate of a listed model file (routed as that listed id). Unknown or not
+  allowed: 404 `model_not_found` (since 1.1; 400 before), and no upstream sees the request.
 - **Deprecated:** the alias names `cleanup` and `assistant` (whatever `aliases` configures) are still
   accepted, so installed apps from before 1.0.0 keep working, and route to the configured model.
   They are not listed and may be removed in a later version; send a listed id instead.
@@ -117,20 +129,26 @@ and statuses are the contract.
 
 | Status | Code | When |
 |---|---|---|
-| 400 | `bad_request` | Missing or malformed fields, not multipart, malformed multipart, bad JSON, unknown chat model |
-| 401 | `unauthorized` | Missing or wrong key |
+| 400 | `bad_request` | Missing or malformed fields, not multipart, malformed multipart, bad JSON |
+| 401 | `unauthorized` | Missing or wrong key (`Connection: close`) |
+| 403 | `forbidden` | The key may not use speech recognition (since 1.1) |
 | 404 | `not_found` | No such route |
+| 404 | `model_not_found` | Chat model unknown, not allowed, or of a role the key lacks (since 1.1) |
+| 408 | `request_timeout` | The body arrived too slowly (since 1.1; `Connection: close`) |
 | 405 | `method_not_allowed` | Wrong method for a route |
 | 413 | `too_large` | Upload over 25 MiB, audio over 6 minutes, chat body over 1 MiB |
 | 415 | `unsupported_audio` | The file cannot be decoded, or contains no audio |
+| 429 | `rate_limited` | Too many requests or failed keys from the client's address; has `Retry-After` (since 1.1) |
 | 429 | `busy` | Too many transcriptions (`max_concurrent + max_waiting`) or chat requests for one upstream (`max_in_flight`) in flight |
 | 500 | `internal_error` | The recogniser failed (should not happen) |
 | 502 | `backend_error` | An upstream answered with an error other than 503, or broke off |
 | 503 | `not_ready` | Recogniser loading, upstream unreachable or loading (llama-server's 503); has `Retry-After` |
 | 504 | `backend_timeout` | Recognition or an upstream took longer than its timeout |
 
-An over-limit body is read and discarded (up to 64 MiB, 30 s) before the 413 is sent, so a client
-still uploading receives the error instead of a reset connection.
+An over-limit body is not read (since 1.1; before, up to 64 MiB were read and discarded): the 413
+is sent with `Connection: close` and the connection closed. A client that sent
+`Expect: 100-continue` always receives it; one that keeps streaming the body may see the connection
+reset before it reads the 413.
 
 ## Comparing two servers
 

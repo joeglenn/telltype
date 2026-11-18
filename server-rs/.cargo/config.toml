@@ -1,0 +1,7 @@
+# The sherpa-onnx native library is used only from target/native/sherpa-onnx/lib, which
+# scripts/native.sh fills after checking the download against native/sherpa-onnx.sha256
+# (sherpa-onnx-sys itself downloads without any checksum). Without it the build stops with
+# "SHERPA_ONNX_LIB_DIR does not exist": run scripts/native.sh once. A packager can point
+# SHERPA_ONNX_LIB_DIR elsewhere; an already set variable wins over this file.
+[env]
+SHERPA_ONNX_LIB_DIR = { value = "target/native/sherpa-onnx/lib", relative = true }

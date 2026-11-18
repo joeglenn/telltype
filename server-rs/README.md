@@ -22,11 +22,12 @@ The HTTP contract (routes, fields, errors, health) is [`docs/contract.md`](docs/
 1. [Install](#install)
 2. [Configure](#configure)
 3. [Run as a systemd user unit](#run-as-a-systemd-user-unit)
-4. [Check it](#check-it)
-5. [Configuration reference](#configuration-reference)
-6. [How it works](#how-it-works)
-7. [Development](#development)
-8. [Troubleshooting](#troubleshooting)
+4. [Running on the internet](#running-on-the-internet)
+5. [Check it](#check-it)
+6. [Configuration reference](#configuration-reference)
+7. [How it works](#how-it-works)
+8. [Development](#development)
+9. [Troubleshooting](#troubleshooting)
 
 ## Install
 
@@ -99,6 +100,119 @@ The unit restarts the server on failure, except after exit code 2 (a configurati
 error, which a restart cannot fix). When `supervise` is configured the server starts its
 `llama-server` processes itself, so this is the only unit you need.
 
+The unit is sandboxed: the file system is read-only except `~/.local/state/telltype` and the
+certificate directory `~/.config/telltype/tls` (run `telltype-server credentials` once before the
+first start, so a self-signed certificate exists), no new privileges, a private `/tmp`, only
+IPv4/IPv6/Unix sockets, the `@system-service` system calls, `UMask=0077`, memory and task caps.
+`systemd-analyze --user security` rated a copy 5.3 with `MemoryDenyWriteExecute=yes` enabled (the
+unit of 1.0: 9.2); the speech engine works with that option, see the unit file for when to enable it. It still listens on
+every interface and reaches the `llama-server`s on localhost; the GPU stays visible to supervised
+`llama-server`s. Options a user unit cannot apply, and what a system unit could add, are listed in
+the unit file. `systemctl --user reload telltype-server` re-reads the key files at once.
+
+## Running on the internet
+
+The defaults suit a home network: nothing changes for clients on loopback, the private LAN ranges,
+Tailscale or Docker bridges (`[limits] exempt`). For a server reachable from the internet, change
+these settings and read what each protection does.
+
+What is protected, always:
+
+- **Slow and idle connections.** Headers (and the TLS handshake) must arrive within
+  `header_timeout_s` (10 s); an idle HTTP/1 keep-alive connection is closed after the same time; any
+  connection with no byte in either direction for `idle_timeout_s` (300 s) is closed. A request
+  body must keep arriving at `body_min_bytes_per_s` (4 KiB/s) after `body_grace_s` (10 s), or the
+  request ends with 408 and the connection closes. At most `max_connections` (1024) connections,
+  `max_connections_per_ip` (32) per address (IPv6: per /64); over the cap a connection is closed
+  right after `accept`. HTTP/2: at most `http2_max_streams` (32) streams per connection, reset
+  floods are cut off.
+- **Early rejection.** The rate limits, the key and the declared `Content-Length` are checked
+  before any byte of the body is read; a rejection is answered and the connection closed
+  (`Connection: close`) instead of reading the body. Clients that send `Expect: 100-continue` (curl
+  does for large uploads) always see the 413/401; a client that streams the body regardless may see
+  the connection reset before it reads the answer. The Telltype app uploads a few hundred KB and is
+  not affected.
+- **Rate limits per client address.** All requests: `requests_per_minute` (600). Failed keys:
+  `auth_failures_per_minute` (10); after that every request from the address gets 429
+  `rate_limited` with `Retry-After`, and no key is even checked until the bucket refills. At most
+  `rate_limit_clients` (10 000) addresses are tracked. Behind a reverse proxy, list it in
+  `trusted_proxies` so the address in `X-Forwarded-For` counts, not the proxy's.
+- **Allowed models only.** Each text role serves the models its `allow` patterns match (default
+  `["*"]`: everything the upstream lists, as in 1.0). Any other name is 404 `model_not_found`
+  before an upstream sees the request, so a `llama-server` router is never asked to load it, and
+  `/v1/models` lists only allowed models.
+- **Named keys.** One key per person or device, each optionally limited to roles; revoked without
+  a restart.
+
+What to set for a public server:
+
+```toml
+[limits]
+exempt = []                       # nobody is exempt from the limits
+trusted_proxies = ["127.0.0.1"]   # only when a reverse proxy on this machine forwards to the server
+
+[auth]
+keys_dir = "keys"                 # named keys (key_file may stay for the owner's own key)
+
+[text.commands]
+allow = ["qwen_qwen3.5-4b-q4_k_m", "gemma-4-*"]   # only what you want to offer
+```
+
+Keep `[limits] exempt` empty (or only the ranges you trust) when a reverse proxy runs on the same
+machine: without `trusted_proxies` every request then comes from 127.0.0.1, and loopback is exempt
+by default.
+
+Keys:
+
+```sh
+telltype-server keys add anna --config server.toml                  # all roles
+telltype-server keys add tablet --roles speech,cleanup --config server.toml
+telltype-server keys add anna2 --show --config server.toml          # also print the key once
+telltype-server keys list --config server.toml                      # names and roles, never keys
+telltype-server keys revoke tablet --config server.toml             # refused within 2 s
+```
+
+A key file is `<keys_dir>/<name>.key`, mode 0600 in a directory of mode 0700: the key on the first
+line, optionally `roles = speech, cleanup`. The server checks the directory every 2 s and on
+SIGHUP; a file with wrong permissions is left out (its key stops working) and logged by name. Logs
+carry the key's name (`"key": "anna"`), never the key. Roles: `speech` (transcriptions), `cleanup`
+and `commands` (chat on that upstream; other models are 404 for that key, and `/v1/models` lists
+only the key's roles).
+
+A reverse proxy with a Let's Encrypt certificate ([Caddy](https://caddyserver.com)), forwarding to
+the server on loopback with plain HTTP (`listen = "127.0.0.1:8170"`, `tls.mode = "off"`,
+`allow_plain_http = true`, `trusted_proxies = ["127.0.0.1"]`, `exempt = []`):
+
+```caddyfile
+{
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 120s
+			idle 60s
+		}
+	}
+}
+
+dictation.example.org {
+	request_body {
+		max_size 27MB
+	}
+	# Caddy sets X-Forwarded-For; the server believes it only from trusted_proxies.
+	reverse_proxy 127.0.0.1:8170 {
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 180s
+		}
+	}
+}
+```
+
+The app then connects to `https://dictation.example.org` with the system
+trust store, no pinning needed. Without a proxy the server's own TLS (`tls.mode = "files"` with a
+Let's Encrypt certificate, or `self-signed` with the app's pinning) is just as good; the
+protections above apply either way.
+
 ## Check it
 
 ```sh
@@ -140,6 +254,24 @@ Durations are seconds (decimals allowed, above 0, at most 86400). Sizes are byte
 | `health_timeout_s` | `2` | Time allowed for each upstream health probe and model list in `/healthz` |
 | `shutdown_grace_s` | `10` | On SIGTERM/SIGINT: time running requests get to finish |
 
+### `[limits]`
+
+Connection handling and rate limits ("Running on the internet" explains each).
+
+| Key | Default | Meaning |
+|---|---|---|
+| `header_timeout_s` | `10` | TLS handshake and each request's headers (HTTP/2: the first request); also how long an idle HTTP/1 keep-alive connection is kept |
+| `idle_timeout_s` | `300` | A connection with no byte read or written for this long is closed. Must be longer than `recognition_timeout_s` and every text `timeout_s` |
+| `body_grace_s`, `body_min_bytes_per_s` | `10`, `4096` | After the grace a body must have arrived at this average rate, or 408 `request_timeout` (`0`: no minimum rate) |
+| `max_connections` | `1024` | Open connections in total |
+| `max_connections_per_ip` | `32` | Open connections per client address (IPv6: per /64); `exempt` and `trusted_proxies` are not capped |
+| `http2_max_streams` | `32` | Concurrent HTTP/2 streams per connection |
+| `requests_per_minute` | `600` | Requests per client address and minute (also the burst); more: 429 `rate_limited` |
+| `auth_failures_per_minute` | `10` | Failed keys per client address and minute; then 429 `rate_limited` without a key check until a token is back |
+| `rate_limit_clients` | `10000` | Client addresses tracked at most (memory bound; idle ones are forgotten first) |
+| `trusted_proxies` | `[]` | Addresses or ranges (`127.0.0.1`, `10.0.0.0/8`) whose `X-Forwarded-For` names the client |
+| `exempt` | loopback, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `fd7a:115c:a1e0::/48`, `fe80::/10`, `fc00::/7` | Clients never rate-limited or capped per address: this machine, the LAN, Tailscale, Docker bridges. `[]` for a public server |
+
 ### `[tls]`
 
 | Key | Default | Meaning |
@@ -157,8 +289,9 @@ names, so one certificate serves every address.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `key_file` | required unless `open` | File with the bearer key (at least 32 characters, mode 0600 or stricter, or the server refuses to start) |
-| `open` | `false` | `true`: no key at all (only for trusted networks); then `key_file` must be absent |
+| `key_file` | required unless `keys_dir` or `open` | File with the bearer key (at least 32 characters, mode 0600 or stricter, or the server refuses to start); its name in logs is `default` |
+| `keys_dir` | none | Directory (mode 0700) of named keys, `<name>.key` each; managed with `telltype-server keys` and re-read without a restart. Works together with `key_file` |
+| `open` | `false` | `true`: no key at all (only for trusted networks); then `key_file` and `keys_dir` must be absent |
 
 ### `[speech]`
 
@@ -189,10 +322,12 @@ dictated text) and `commands` (optional; Command Mode). Both have the same keys:
 | `timeout_s` | `60` / `120` | Time for the upstream to answer (for streams: the longest silence between chunks) |
 | `max_in_flight` | `4` / `2` | Requests at once to this upstream; more: 429 `busy` |
 | `health_path` | `"/health"` | Route that answers 200 when the upstream can serve |
+| `allow` | `["*"]` | Model names clients may use (`*` and `?` patterns), besides `model` and the aliases. `[]`: the configured model only. Others are 404 `model_not_found` without reaching the upstream, and are not listed |
 
 A chat request goes to the upstream that has its `model` as an alias, or else to the one whose own
 `/v1/models` lists it (asked again when a name is new). Clients should send the real ids from
-`/v1/models`; the `cleanup` and `assistant` names are deprecated. An unknown name is 400 `bad_request`.
+`/v1/models`; the `cleanup` and `assistant` names are deprecated. An unknown or not allowed name is
+404 `model_not_found` (400 before 1.1).
 
 #### `[text.<role>.supervise]` (optional): Telltype Server runs the upstream
 
@@ -266,6 +401,17 @@ ignored.
 scripts/gate.sh                  # fmt, clippy (pedantic, -D warnings), tests + line coverage (floor 85 %), cargo deny
 SLOW=1 TELLTYPE_PARAKEET_DIR=<parakeet dir> scripts/gate.sh   # plus the real-model test
 ```
+
+The sherpa-onnx native library is used only from `target/native/sherpa-onnx`, which
+`scripts/native.sh` downloads and checks against the SHA-256 pinned in
+[`native/sherpa-onnx.sha256`](native/sherpa-onnx.sha256) (the `sherpa-onnx-sys` crate downloads
+without any check); `.cargo/config.toml` points the build there (`SHERPA_ONNX_LIB_DIR`). The gate
+and `install.sh` run it first; for a plain `cargo build` run `scripts/native.sh` once. A changed or
+corrupted archive stops it with "SHA-256 mismatch".
+
+`scripts/fuzz.sh [seconds]` fuzzes the parsers that read client bytes (multipart, WAV, the audio
+decoders with Ogg/Opus and WebM, chat request bodies) with `cargo fuzz` (nightly toolchain and
+`cargo install cargo-fuzz`); the corpus stays in `fuzz/corpus`, outside git.
 
 The gate needs `cargo-llvm-cov` and `cargo-deny` (`cargo install --locked cargo-llvm-cov
 cargo-deny`) and the `llvm-tools-preview` component. Pedantic lints are configured in

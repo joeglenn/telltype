@@ -1,11 +1,14 @@
-# Telltype Server as a systemd user unit (example).
+# Telltype Server as a systemd user unit (example), sandboxed.
 #
 #   install -m 0644 systemd/telltype-server.service ~/.config/systemd/user/
+#   telltype-server credentials --config ~/.config/telltype/server.toml   # before the first start
 #   systemctl --user daemon-reload && systemctl --user enable --now telltype-server
 #   journalctl --user -u telltype-server -f        # one JSON object per line
+#   systemctl --user reload telltype-server         # SIGHUP: read the key files again at once
 #
 # Adjust TELLTYPE_CONFIG if the configuration lives elsewhere. The server supervises its
-# llama-server processes itself (when configured), so this is the only unit needed.
+# llama-server processes itself (when configured), so this is the only unit needed; they run in
+# the same sandbox.
 [Unit]
 Description=Telltype Server: speech to text and text models for the Telltype app
 After=network-online.target
@@ -16,6 +19,7 @@ Type=exec
 Environment=TELLTYPE_CONFIG=%h/.config/telltype/server.toml
 Environment=TELLTYPE_LOG=info
 ExecStart=%h/.local/bin/telltype-server serve
+ExecReload=/bin/kill -HUP $MAINPID
 # Exit code 2 is a configuration or credential error: do not restart in a loop, fix the file.
 RestartPreventExitStatus=2
 Restart=always
@@ -24,10 +28,42 @@ RestartSec=3
 # get SIGTERM (and SIGKILL after their stop timeout).
 TimeoutStopSec=45
 KillMode=mixed
-# Audio is only ever held in memory; the service needs no writable directory beyond its config and
-# state (presets file, generated certificate on first start).
-PrivateTmp=yes
+
+# Sandbox. Audio is only ever held in memory. Everything is read-only except the state directory
+# (presets file, hot-word vocabulary) and the certificate directory (a self-signed certificate is
+# generated there on first start or by `credentials`). Each option was checked with
+# `systemd-analyze --user security` and a running instance (README, "Running on the internet").
+UMask=0077
 NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=-%h/.local/state/telltype -%h/.config/telltype/tls
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+# Not set here, because a user manager cannot apply them (the unit fails with 218/CAPABILITIES or
+# the option is ignored): CapabilityBoundingSet=, ProtectKernelModules=, ProtectKernelLogs=,
+# ProtectClock=, PrivateDevices= (all drop capabilities) and ProtectHostname= (no UTS namespace). The process
+# has no capabilities in a user unit anyway; a system unit could add both, plus User=/DynamicUser=,
+# ProtectKernelModules=, ProtectKernelLogs=, ProtectClock=, PrivateDevices= (without supervised
+# GPU upstreams) and IPAddressDeny=/IPAddressAllow= per network.
+# The speech library (onnxruntime) works with this; GPU runtimes of supervised llama-servers
+# (CUDA, ROCm, Vulkan drivers) may JIT-compile and need writable+executable memory: enable it
+# only when the server supervises no llama-server.
+#MemoryDenyWriteExecute=yes
+# Devices stay visible: supervised llama-servers need the GPU (/dev/dri, /dev/nvidia*, /dev/kfd).
+MemoryMax=8G
+TasksMax=512
 
 [Install]
 WantedBy=default.target

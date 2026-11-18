@@ -22,6 +22,7 @@ fn spec(role: &str, url: &str, aliases: &[(&str, &str)], max_in_flight: usize) -
         timeout: Duration::from_millis(500),
         max_in_flight,
         health_path: "/health".to_owned(),
+        allow: vec!["*".to_owned()],
     }
 }
 
@@ -84,14 +85,14 @@ async fn alias_to_another_name_rewrites_only_the_model() {
 }
 
 #[tokio::test]
-async fn listed_model_names_route_and_unknown_names_are_400() {
+async fn listed_model_names_route_and_unknown_names_are_model_not_found() {
     let (set, _cleanup, commands) = pair().await;
     let reply = set.chat(chat_body("gemma-12b"), "r").await.unwrap();
     assert_eq!(reply.role, "commands");
     assert_eq!(commands.seen()[0].1, chat_body("gemma-12b"));
     let err = set.chat(chat_body("gpt-4"), "r").await.err().unwrap();
     assert!(
-        matches!(&err, UpstreamError::BadRequest(m) if m.contains("gpt-4")),
+        matches!(&err, UpstreamError::ModelNotFound(m) if m.contains("gpt-4")),
         "{err:?}"
     );
 }
@@ -390,4 +391,96 @@ async fn a_router_preset_of_the_cleanup_file_is_listed_once_and_routes_to_cleanu
         forwarded["model"], "cleanup",
         "renamed to what the cleanup upstream serves"
     );
+}
+
+#[test]
+fn globs() {
+    use super::glob;
+    for (pattern, text, matches) in [
+        ("*", "anything", true),
+        ("qwen*", "qwen3.5-4b", true),
+        ("qwen*", "gemma", false),
+        ("*-q4_k_m", "qwen3.5-4b-q4_k_m", true),
+        ("gemma-?-12b", "gemma-4-12b", true),
+        ("gemma-?-12b", "gemma-44-12b", false),
+        ("a*b*c", "aXXbYYc", true),
+        ("a*b*c", "aXXbYY", false),
+        ("exact", "exact", true),
+        ("exact", "exactly", false),
+        ("", "", true),
+        ("**", "", true),
+    ] {
+        assert_eq!(glob(pattern, text), matches, "{pattern} {text}");
+    }
+}
+
+async fn allow_listed(allow: &[&str]) -> (Upstreams, FakeUpstream, FakeUpstream) {
+    let cleanup = FakeUpstream::start("cleanup", &["cleanup"]).await.unwrap();
+    let commands = FakeUpstream::start("commands", &["qwen3.5-4b", "gemma-12b"])
+        .await
+        .unwrap();
+    let mut commands_spec = spec("commands", &commands.url(), &[("assistant", "qwen3.5-4b")], 1);
+    commands_spec.allow = allow.iter().map(|a| (*a).to_owned()).collect();
+    let mut cleanup_spec = spec("cleanup", &cleanup.url(), &[("cleanup", "cleanup")], 1);
+    cleanup_spec.allow = Vec::new();
+    let set = Upstreams::new(vec![cleanup_spec, commands_spec], Duration::from_millis(300)).unwrap();
+    (set, cleanup, commands)
+}
+
+#[tokio::test]
+async fn models_outside_the_allow_list_are_not_listed_and_never_reach_an_upstream() {
+    let (set, cleanup, commands) = allow_listed(&["qwen*"]).await;
+    let list = set.models().await;
+    let ids: Vec<&str> = list.data.iter().filter_map(|e| e["id"].as_str()).collect();
+    assert_eq!(ids, ["model-cleanup", "qwen3.5-4b"], "{ids:?}");
+    assert!(!format!("{:?}", list.per_role).contains("gemma"));
+    for model in ["gemma-12b", "gpt-4", "Qwen3.5-4b", "../etc"] {
+        let err = set.chat(chat_body(model), "r").await.err().unwrap();
+        assert!(matches!(err, UpstreamError::ModelNotFound(_)), "{model}: {err:?}");
+    }
+    assert!(
+        commands.seen().is_empty(),
+        "the router was asked for a model outside the list"
+    );
+    assert!(cleanup.seen().is_empty());
+    set.chat(chat_body("qwen3.5-4b"), "r").await.unwrap();
+    set.chat(chat_body("assistant"), "r").await.unwrap();
+    assert_eq!(commands.seen().len(), 2);
+}
+
+#[tokio::test]
+async fn an_empty_allow_list_means_the_configured_model_and_aliases_only() {
+    let (set, _cleanup, commands) = allow_listed(&[]).await;
+    let list = set.models().await;
+    let ids: Vec<&str> = list.data.iter().filter_map(|e| e["id"].as_str()).collect();
+    assert_eq!(
+        ids,
+        ["model-cleanup", "qwen3.5-4b"],
+        "the alias target stays allowed"
+    );
+    let err = set.chat(chat_body("gemma-12b"), "r").await.err().unwrap();
+    assert!(matches!(err, UpstreamError::ModelNotFound(_)));
+    assert!(commands.seen().is_empty());
+    set.chat(chat_body("assistant"), "r").await.unwrap();
+}
+
+#[tokio::test]
+async fn a_key_limited_to_roles_cannot_reach_other_upstreams() {
+    let (set, cleanup, commands) = allow_listed(&["*"]).await;
+    let roles = ["cleanup".to_owned()];
+    for model in ["qwen3.5-4b", "assistant", "gemma-12b"] {
+        let err = set
+            .chat_as(chat_body(model), "r", Some(&roles))
+            .await
+            .err()
+            .unwrap();
+        assert!(matches!(err, UpstreamError::ModelNotFound(_)), "{model}");
+    }
+    assert!(commands.seen().is_empty());
+    set.chat_as(chat_body("cleanup"), "r", Some(&roles))
+        .await
+        .unwrap();
+    assert_eq!(cleanup.seen().len(), 1);
+    assert!(crate::check_chat_request(b"{}").is_err());
+    assert!(crate::check_chat_request(&chat_body("x")).is_ok());
 }

@@ -5,12 +5,19 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
 
-use telltype_config::{Config, ConfigError, SuperviseConfig, TlsMode, UpstreamConfig};
+use telltype_config::{Config, ConfigError, ConnectionLimits, SuperviseConfig, TlsMode, UpstreamConfig};
 use telltype_http::credentials::{self, CredentialError, Fingerprints, Outcome};
-use telltype_http::{AppState, HttpLimits, router};
+use telltype_http::keys::{self as named_keys, KeyStore};
+use telltype_http::{AppState, ClientPolicy, Guard, HttpLimits, router};
 use telltype_speech::{EngineLimits, LoadError, Recognizer, SherpaOptions, SherpaRecognizer, SpeechEngine};
 use telltype_supervisor::{PresetError, ProcessSpec, Supervisor, build_presets, write_presets};
 use telltype_upstream::{UpstreamError, UpstreamSpec, Upstreams};
+
+use crate::cli::KeysAction;
+use crate::conn::{ConnLimits, LimitAcceptor};
+
+/// How often the key files are checked for changes (SIGHUP reloads at once).
+const KEY_POLL: std::time::Duration = std::time::Duration::from_secs(2);
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServerError {
@@ -70,6 +77,9 @@ pub fn credentials(config: &Config, rotate_key: bool, rotate_cert: bool) -> Resu
             let outcome = credentials::ensure_key(path, rotate_key)?;
             let _ = writeln!(report, "key: {outcome} ({})", path.display());
         }
+        None if config.auth.keys_dir.is_some() => {
+            report.push_str("key: none (named keys: telltype-server keys add NAME)\n");
+        }
         None => report.push_str("key: none (auth.open = true)\n"),
     }
     let tls = &config.tls;
@@ -99,6 +109,88 @@ pub fn credentials(config: &Config, rotate_key: bool, rotate_cert: bool) -> Resu
     Ok(report)
 }
 
+/// `keys` command: add, list or revoke a named key in `auth.keys_dir`. Never prints a key unless
+/// `keys add --show` asks for it.
+pub fn keys(config: &Config, action: &KeysAction) -> Result<String, ServerError> {
+    let dir = config.auth.keys_dir.as_deref().ok_or_else(|| ConfigError {
+        key: "auth.keys_dir".to_owned(),
+        message: "is not set; named keys live in that directory".to_owned(),
+    })?;
+    let mut report = String::new();
+    match action {
+        KeysAction::Add { name, roles, show } => {
+            let path = named_keys::add_key(dir, name, roles.as_deref())?;
+            let roles = roles
+                .as_ref()
+                .map_or_else(|| "all roles".to_owned(), |r| r.join(", "));
+            let _ = writeln!(
+                report,
+                "added key {name} ({roles}) in {}; a running server accepts it within {} s",
+                path.display(),
+                KEY_POLL.as_secs()
+            );
+            if *show {
+                let (key, _) = named_keys::read_key_file(&path)?;
+                let _ = writeln!(report, "{}", String::from_utf8_lossy(&key));
+            }
+        }
+        KeysAction::List => {
+            for info in named_keys::list_keys(dir)? {
+                let roles = info
+                    .roles
+                    .map_or_else(|| "all roles".to_owned(), |r| r.join(", "));
+                match info.problem {
+                    None => {
+                        let _ = writeln!(report, "{}\t{roles}", info.name);
+                    }
+                    Some(problem) => {
+                        let _ = writeln!(report, "{}\tNOT USED: {problem}", info.name);
+                    }
+                }
+            }
+        }
+        KeysAction::Revoke { name } => {
+            let path = named_keys::revoke_key(dir, name)?;
+            let _ = writeln!(
+                report,
+                "revoked key {name} (deleted {}); a running server refuses it within {} s",
+                path.display(),
+                KEY_POLL.as_secs()
+            );
+        }
+    }
+    Ok(report)
+}
+
+/// Re-read the keys when their files change, and at once on SIGHUP.
+async fn watch_keys(store: Arc<KeyStore>) {
+    use tokio::signal::unix::{SignalKind, signal};
+    let mut hangup = signal(SignalKind::hangup()).ok();
+    loop {
+        let forced = if let Some(hangup) = hangup.as_mut() {
+            tokio::select! {
+                _ = hangup.recv() => true,
+                () = tokio::time::sleep(KEY_POLL) => false,
+            }
+        } else {
+            tokio::time::sleep(KEY_POLL).await;
+            false
+        };
+        let result = if forced {
+            Some(store.reload())
+        } else {
+            store.reload_if_changed()
+        };
+        match result {
+            Some(Ok(reloaded)) => {
+                tracing::info!(event = "keys_reloaded", keys = reloaded.keys, names = ?store.names(), skipped = ?reloaded.skipped);
+            }
+            Some(Err(error)) => tracing::warn!(event = "keys_reload_failed", error = %error),
+            None => {}
+        }
+    }
+}
+
 /// `fingerprint` command.
 pub fn fingerprint(config: &Config) -> Result<String, ServerError> {
     Ok(fingerprint_lines(&credentials::fingerprints(
@@ -121,12 +213,7 @@ pub async fn serve(
     shutdown: impl std::future::Future<Output = ()> + Send,
     listening: Option<tokio::sync::oneshot::Sender<SocketAddr>>,
 ) -> Result<(), ServerError> {
-    let key = config
-        .auth
-        .key_file
-        .as_deref()
-        .map(credentials::load_key)
-        .transpose()?;
+    let keys = load_keys(&config)?;
     let tls = prepare_tls(&config)?;
     let upstreams = Upstreams::new(
         config.upstreams().into_iter().map(upstream_spec).collect(),
@@ -153,18 +240,11 @@ pub async fn serve(
         }
     });
 
-    let state = AppState {
-        key: key.map(Arc::new),
-        speech,
-        speech_model: config.speech.model_name.clone(),
-        upstreams: Arc::new(upstreams),
-        limits: HttpLimits {
-            max_upload_bytes: config.server.max_upload_bytes,
-            multipart_overhead_bytes: config.server.multipart_overhead_bytes,
-            max_json_bytes: config.server.max_json_bytes,
-            retry_after_s: config.server.retry_after.as_secs(),
-        },
-    };
+    let watcher = keys
+        .as_ref()
+        .filter(|_| config.auth.keys_dir.is_some())
+        .map(|store| tokio::spawn(watch_keys(Arc::clone(store))));
+    let state = app_state(&config, keys, speech, upstreams);
     let app = router(state).into_make_service_with_connect_info::<SocketAddr>();
     let addr = config.server.listen;
     let listener =
@@ -172,21 +252,7 @@ pub async fn serve(
     listener.set_nonblocking(true)?;
     let bound = listener.local_addr()?;
     let handle = axum_server::Handle::new();
-    let server = {
-        let handle = handle.clone();
-        async move {
-            match tls {
-                Some(rustls) => {
-                    axum_server::from_tcp_rustls(listener, rustls)?
-                        .handle(handle)
-                        .serve(app)
-                        .await
-                }
-                None => axum_server::from_tcp(listener)?.handle(handle).serve(app).await,
-            }
-        }
-    };
-    let mut server = tokio::spawn(server);
+    let mut server = tokio::spawn(http_server(&config, tls, listener, handle.clone(), app));
     tracing::info!(event = "listening", addr = %bound, tls = config.tls.mode != TlsMode::Off);
     if let Some(sender) = listening {
         let _ = sender.send(bound);
@@ -214,11 +280,121 @@ pub async fn serve(
             joined(server.await)
         }
     };
+    if let Some(watcher) = watcher {
+        watcher.abort();
+    }
     for supervisor in supervisors {
         supervisor.stop().await;
     }
     tracing::info!(event = "stopped");
     result
+}
+
+fn load_keys(config: &Config) -> Result<Option<Arc<KeyStore>>, ServerError> {
+    let auth = &config.auth;
+    if auth.key_file.is_none() && auth.keys_dir.is_none() {
+        return Ok(None);
+    }
+    let store = KeyStore::load(auth.key_file.as_deref(), auth.keys_dir.as_deref())?;
+    tracing::info!(event = "keys_loaded", names = ?store.names());
+    Ok(Some(Arc::new(store)))
+}
+
+fn app_state(
+    config: &Config,
+    keys: Option<Arc<KeyStore>>,
+    speech: Arc<SpeechEngine>,
+    upstreams: Upstreams,
+) -> AppState {
+    let rate = &config.server.rate;
+    let guard = Guard::new(ClientPolicy {
+        requests_per_minute: rate.requests_per_minute,
+        auth_failures_per_minute: rate.auth_failures_per_minute,
+        max_clients: rate.max_clients,
+        trusted_proxies: rate.trusted_proxies.clone(),
+        exempt: rate.exempt.clone(),
+    });
+    AppState {
+        keys,
+        guard: Arc::new(guard),
+        speech,
+        speech_model: config.speech.model_name.clone(),
+        upstreams: Arc::new(upstreams),
+        limits: HttpLimits {
+            max_upload_bytes: config.server.max_upload_bytes,
+            multipart_overhead_bytes: config.server.multipart_overhead_bytes,
+            max_json_bytes: config.server.max_json_bytes,
+            retry_after_s: config.server.retry_after.as_secs(),
+            body_grace: config.server.limits.body_grace,
+            body_min_bytes_per_s: config.server.limits.body_min_bytes_per_s,
+        },
+    }
+}
+
+type App = axum::extract::connect_info::IntoMakeServiceWithConnectInfo<axum::Router, SocketAddr>;
+
+/// The listener with the connection caps, TLS (when configured) and the HTTP limits.
+fn http_server(
+    config: &Config,
+    tls: Option<axum_server::tls_rustls::RustlsConfig>,
+    listener: std::net::TcpListener,
+    handle: axum_server::Handle<SocketAddr>,
+    app: App,
+) -> impl std::future::Future<Output = std::io::Result<()>> + use<> {
+    let limits = config.server.limits.clone();
+    let acceptor = LimitAcceptor::new(ConnLimits {
+        max_total: limits.max_connections,
+        max_per_ip: limits.max_connections_per_ip,
+        idle: limits.idle_timeout,
+        exempt: config
+            .server
+            .rate
+            .trusted_proxies
+            .iter()
+            .chain(&config.server.rate.exempt)
+            .copied()
+            .collect(),
+    });
+    async move {
+        if let Some(rustls) = tls {
+            let tls = axum_server::tls_rustls::RustlsAcceptor::new(rustls)
+                .handshake_timeout(limits.header_timeout)
+                .acceptor(acceptor);
+            let mut server = axum_server::from_tcp(listener)?.acceptor(tls);
+            tune(server.http_builder(), &limits);
+            server
+                .first_request_timeout(limits.header_timeout)
+                .handle(handle)
+                .serve(app)
+                .await
+        } else {
+            let mut server = axum_server::from_tcp(listener)?.acceptor(acceptor);
+            tune(server.http_builder(), &limits);
+            server
+                .first_request_timeout(limits.header_timeout)
+                .handle(handle)
+                .serve(app)
+                .await
+        }
+    }
+}
+
+/// HTTP timeouts and limits: the header read timeout (also the HTTP/1 keep-alive idle time, as
+/// hyper starts it when it waits for the next request), HTTP/2 stream limits.
+fn tune(
+    builder: &mut hyper_util::server::conn::auto::Builder<hyper_util::rt::TokioExecutor>,
+    limits: &ConnectionLimits,
+) {
+    builder
+        .http1()
+        .header_read_timeout(limits.header_timeout)
+        .max_buf_size(256 * 1024);
+    builder
+        .http2()
+        .max_concurrent_streams(limits.http2_max_streams)
+        .max_pending_accept_reset_streams(Some(20))
+        .max_local_error_reset_streams(Some(64))
+        .max_header_list_size(64 * 1024);
 }
 
 fn joined(served: Result<std::io::Result<()>, tokio::task::JoinError>) -> Result<(), ServerError> {
@@ -301,6 +477,7 @@ fn upstream_spec(config: &UpstreamConfig) -> UpstreamSpec {
         timeout: config.timeout,
         max_in_flight: config.max_in_flight,
         health_path: config.health_path.clone(),
+        allow: config.allow.clone(),
     }
 }
 

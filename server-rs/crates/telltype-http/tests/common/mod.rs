@@ -12,7 +12,7 @@ use axum::http::{Request, Response, StatusCode};
 use bytes::Bytes;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
-use telltype_http::{AppState, HttpLimits, router};
+use telltype_http::{AppState, ClientPolicy, Guard, HttpLimits, KeyStore, router};
 use telltype_speech::testing::FakeRecognizer;
 use telltype_speech::{EngineLimits, SpeechEngine};
 use telltype_upstream::testing::FakeUpstream;
@@ -38,6 +38,11 @@ pub struct Options {
     pub engine: EngineLimits,
     pub upstream_in_flight: usize,
     pub key: bool,
+    /// Replaces the one `KEY` (named `tester`).
+    pub keys: Option<Arc<KeyStore>>,
+    pub policy: ClientPolicy,
+    /// The commands upstream's allow-list (cleanup allows its model and alias only).
+    pub allow: Vec<String>,
 }
 
 impl Default for Options {
@@ -50,6 +55,8 @@ impl Default for Options {
                 multipart_overhead_bytes: 1 << 20,
                 max_json_bytes: 1 << 20,
                 retry_after_s: 5,
+                body_grace: Duration::from_secs(10),
+                body_min_bytes_per_s: 4096,
             },
             engine: EngineLimits {
                 max_concurrent: 2,
@@ -60,6 +67,9 @@ impl Default for Options {
             },
             upstream_in_flight: 4,
             key: true,
+            keys: None,
+            policy: ClientPolicy::default(),
+            allow: vec!["*".to_owned()],
         }
     }
 }
@@ -73,6 +83,7 @@ pub fn spec(role: &str, url: String, alias: (&str, &str), in_flight: usize) -> U
         timeout: Duration::from_millis(800),
         max_in_flight: in_flight,
         health_path: "/health".to_owned(),
+        allow: Vec::new(),
     }
 }
 
@@ -89,12 +100,15 @@ pub async fn harness(options: Options) -> Harness {
                 ("cleanup", "cleanup"),
                 options.upstream_in_flight,
             ),
-            spec(
-                "commands",
-                commands.url(),
-                ("assistant", "qwen3.5-4b-q4_k_m"),
-                options.upstream_in_flight,
-            ),
+            UpstreamSpec {
+                allow: options.allow.clone(),
+                ..spec(
+                    "commands",
+                    commands.url(),
+                    ("assistant", "qwen3.5-4b-q4_k_m"),
+                    options.upstream_in_flight,
+                )
+            },
         ],
         Duration::from_millis(300),
     )
@@ -105,7 +119,12 @@ pub async fn harness(options: Options) -> Harness {
         engine.set_recognizer(recognizer.clone());
     }
     let state = AppState {
-        key: options.key.then(|| Arc::new(KEY.as_bytes().to_vec())),
+        keys: options.keys.clone().or_else(|| {
+            options
+                .key
+                .then(|| Arc::new(KeyStore::fixed(&[("tester", KEY.as_bytes(), None)])))
+        }),
+        guard: Arc::new(Guard::new(options.policy.clone())),
         speech: engine.clone(),
         speech_model: "model-stt".to_owned(),
         upstreams: Arc::new(upstreams),

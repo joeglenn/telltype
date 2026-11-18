@@ -300,3 +300,120 @@ fn load_reads_a_file_and_reports_a_missing_one() {
     let err = Config::load(&file).unwrap_err();
     assert!(err.message.starts_with("cannot read"), "{err}");
 }
+
+#[test]
+fn hardening_defaults_keep_a_private_setup_as_before() {
+    let c = parse(MINIMAL).unwrap();
+    let l = &c.server.limits;
+    assert_eq!(l.header_timeout, Duration::from_secs(10));
+    assert_eq!(l.idle_timeout, Duration::from_secs(300));
+    assert_eq!(
+        (l.max_connections, l.max_connections_per_ip, l.http2_max_streams),
+        (1024, 32, 32)
+    );
+    assert_eq!(
+        (l.body_grace, l.body_min_bytes_per_s),
+        (Duration::from_secs(10), 4096)
+    );
+    let r = &c.server.rate;
+    assert_eq!(
+        (r.requests_per_minute, r.auth_failures_per_minute, r.max_clients),
+        (600, 10, 10_000)
+    );
+    assert!(r.trusted_proxies.is_empty());
+    for private in [
+        "127.0.0.1",
+        "10.1.1.1",
+        "172.17.0.2",
+        "192.168.0.10",
+        "100.101.102.103",
+        "fd7a:115c:a1e0::9",
+        "::1",
+    ] {
+        assert!(
+            r.exempt.iter().any(|n| n.contains(private.parse().unwrap())),
+            "{private}"
+        );
+    }
+    for public in ["8.8.8.8", "100.128.0.1", "2001:db8::1", "172.32.0.1"] {
+        assert!(
+            !r.exempt.iter().any(|n| n.contains(public.parse().unwrap())),
+            "{public}"
+        );
+    }
+    assert_eq!(
+        c.cleanup.allow,
+        ["*"],
+        "absent allow: every listed model, as in 1.0"
+    );
+    assert_eq!(c.auth.keys_dir, None);
+}
+
+#[test]
+fn hardening_keys_are_validated() {
+    let with = |extra: &str| format!("{MINIMAL}\n{extra}");
+    let c = parse(&with(
+        "[limits]\nexempt = []\ntrusted_proxies = [\"127.0.0.1\", \"10.0.0.0/8\"]\nheader_timeout_s = 5\n",
+    ))
+    .unwrap();
+    assert!(c.server.rate.exempt.is_empty());
+    assert_eq!(c.server.rate.trusted_proxies.len(), 2);
+    assert_eq!(c.server.limits.header_timeout, Duration::from_secs(5));
+    assert_eq!(
+        err_key(&with("[limits]\ntrusted_proxies = [\"nope\"]\n")),
+        "limits.trusted_proxies"
+    );
+    assert_eq!(
+        err_key(&with("[limits]\nexempt = [\"10.0.0.0/33\"]\n")),
+        "limits.exempt"
+    );
+    assert_eq!(
+        err_key(&with("[limits]\nrequests_per_minute = 0\n")),
+        "limits.requests_per_minute"
+    );
+    assert_eq!(
+        err_key(&with("[limits]\nmax_connections = 0\n")),
+        "limits.max_connections"
+    );
+    assert_eq!(
+        err_key(&with("[limits]\nhttp2_max_streams = 0\n")),
+        "limits.http2_max_streams"
+    );
+    assert_eq!(
+        err_key(&with("[limits]\nidle_timeout_s = 60\n")),
+        "limits.idle_timeout_s"
+    );
+    assert_eq!(err_key(&with("[limits]\nbogus = 1\n")), "");
+    let c = parse(&MINIMAL.replace("model = \"gemma\"", "model = \"gemma\"\nallow = []")).unwrap();
+    assert!(c.cleanup.allow.is_empty());
+    assert_eq!(
+        err_key(&MINIMAL.replace("model = \"gemma\"", "model = \"gemma\"\nallow = [\" \"]")),
+        "text.cleanup.allow"
+    );
+    let dir_only = MINIMAL.replace("key_file = \"gate.key\"", "keys_dir = \"keys\"");
+    assert_eq!(
+        parse(&dir_only).unwrap().auth.keys_dir.unwrap(),
+        Path::new("/etc/telltype/keys")
+    );
+    assert_eq!(
+        err_key(&MINIMAL.replace("key_file = \"gate.key\"", "keys_dir = \"k\"\nopen = true")),
+        "auth.open"
+    );
+}
+
+#[test]
+fn ip_ranges() {
+    use super::IpNet;
+    let net: IpNet = "10.0.0.0/8".parse().unwrap();
+    assert!(net.contains("10.200.1.1".parse().unwrap()));
+    assert!(net.contains("::ffff:10.0.0.1".parse().unwrap()));
+    assert!(!net.contains("11.0.0.1".parse().unwrap()));
+    assert!(!net.contains("::1".parse().unwrap()));
+    let any: IpNet = "0.0.0.0/0".parse().unwrap();
+    assert!(any.contains("8.8.8.8".parse().unwrap()));
+    let all6: IpNet = "::/0".parse().unwrap();
+    assert!(all6.contains("2001:db8::1".parse().unwrap()));
+    assert!("::1/129".parse::<IpNet>().is_err());
+    assert!("x/8".parse::<IpNet>().is_err());
+    assert!("10.0.0.1/x".parse::<IpNet>().is_err());
+}

@@ -14,8 +14,11 @@ pub struct ApiError {
     pub status: StatusCode,
     pub code: &'static str,
     pub message: String,
-    /// Seconds for `Retry-After` (503 responses).
+    /// Seconds for `Retry-After` (429 `rate_limited` and 503 responses).
     pub retry_after: Option<u64>,
+    /// Send `Connection: close`: the request body was not read (an early rejection), so the
+    /// connection must not carry another request.
+    pub close: bool,
 }
 
 /// Put on every error response so the request log can name the code.
@@ -29,7 +32,34 @@ impl ApiError {
             code,
             message: message.into(),
             retry_after: None,
+            close: false,
         }
+    }
+
+    /// The same error with `Connection: close`.
+    #[must_use]
+    pub fn closing(mut self) -> Self {
+        self.close = true;
+        self
+    }
+    #[must_use]
+    pub fn rate_limited(message: impl Into<String>, retry_after_s: u64) -> Self {
+        Self {
+            retry_after: Some(retry_after_s.max(1)),
+            ..Self::new(StatusCode::TOO_MANY_REQUESTS, "rate_limited", message)
+        }
+    }
+    #[must_use]
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::FORBIDDEN, "forbidden", message)
+    }
+    #[must_use]
+    pub fn model_not_found(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::NOT_FOUND, "model_not_found", message)
+    }
+    #[must_use]
+    pub fn request_timeout(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::REQUEST_TIMEOUT, "request_timeout", message)
     }
 
     #[must_use]
@@ -106,6 +136,7 @@ impl ApiError {
         let message = error.to_string();
         match error {
             UpstreamError::BadRequest(_) => Self::bad_request(message),
+            UpstreamError::ModelNotFound(_) => Self::model_not_found(message),
             UpstreamError::Busy { .. } => Self::busy(message),
             UpstreamError::NotReady(_) => Self::not_ready(message, retry_after_s),
             UpstreamError::Timeout { .. } => Self::backend_timeout(message),
@@ -132,6 +163,9 @@ impl IntoResponse for ApiError {
         let headers = response.headers_mut();
         if let Some(seconds) = self.retry_after {
             headers.insert(header::RETRY_AFTER, HeaderValue::from(seconds));
+        }
+        if self.close {
+            headers.insert(header::CONNECTION, HeaderValue::from_static("close"));
         }
         if self.status == StatusCode::UNAUTHORIZED {
             headers.insert(header::WWW_AUTHENTICATE, HeaderValue::from_static("Bearer"));
@@ -190,6 +224,7 @@ mod tests {
     fn upstream_errors_map_to_the_contract() {
         let cases = [
             (UpstreamError::BadRequest("x".into()), 400, "bad_request"),
+            (UpstreamError::ModelNotFound("x".into()), 404, "model_not_found"),
             (
                 UpstreamError::Busy {
                     role: "cleanup".into(),

@@ -14,6 +14,7 @@ use serde_json::{Value, json};
 use telltype_upstream::ReplyBody;
 
 use crate::error::{ApiError, ErrorCode};
+use crate::keys::Identity;
 use crate::middleware::{RequestContext, around, read_capped};
 use crate::multipart::{boundary, parse_parts};
 use crate::state::AppState;
@@ -85,21 +86,34 @@ async fn healthz(State(state): State<AppState>, Extension(context): Context) -> 
     response
 }
 
-async fn models(State(state): State<AppState>) -> Json<Value> {
-    let mut data = vec![json!({
-        "id": state.speech_model, "object": "model", "created": 0, "owned_by": "telltype",
-        "telltype": {"roles": ["speech"]}
-    })];
-    data.extend(state.upstreams.models().await.data);
+async fn models(State(state): State<AppState>, identity: Option<Extension<Identity>>) -> Json<Value> {
+    let may = |role: &str| identity.as_ref().is_none_or(|i| i.may(role));
+    let mut data = Vec::new();
+    if may("speech") {
+        data.push(json!({
+            "id": state.speech_model, "object": "model", "created": 0, "owned_by": "telltype",
+            "telltype": {"roles": ["speech"]}
+        }));
+    }
+    // Only allowed models come back from the upstreams; a key limited to roles sees its own.
+    data.extend(state.upstreams.models().await.data.into_iter().filter(|entry| {
+        entry["telltype"]["roles"]
+            .as_array()
+            .is_some_and(|roles| roles.iter().filter_map(Value::as_str).any(&may))
+    }));
     Json(json!({"object": "list", "data": data}))
 }
 
 async fn transcriptions(
     State(state): State<AppState>,
     Extension(context): Context,
+    identity: Option<Extension<Identity>>,
     headers: HeaderMap,
     body: Body,
 ) -> Result<Response, ApiError> {
+    if identity.as_ref().is_some_and(|i| !i.may("speech")) {
+        return Err(ApiError::forbidden("this key may not use speech recognition").closing());
+    }
     let retry = state.limits.retry_after_s;
     let content_type = headers
         .get(header::CONTENT_TYPE)
@@ -125,6 +139,7 @@ async fn transcriptions(
         body,
         max + state.limits.multipart_overhead_bytes,
         &too_large,
+        &state.limits,
     )
     .await?;
     context.bytes_in(raw.len());
@@ -229,16 +244,18 @@ impl Form {
 async fn chat(
     State(state): State<AppState>,
     Extension(context): Context,
+    identity: Option<Extension<Identity>>,
     headers: HeaderMap,
     body: Body,
 ) -> Result<Response, ApiError> {
     let max = state.limits.max_json_bytes;
     let too_large = format!("request body is larger than {} MB", max.div_ceil(MIB));
-    let raw = read_capped(&headers, body, max, &too_large).await?;
+    let raw = read_capped(&headers, body, max, &too_large, &state.limits).await?;
     context.bytes_in(raw.len());
+    let roles = identity.as_ref().and_then(|i| i.roles.clone());
     let reply = state
         .upstreams
-        .chat(raw, &context.request_id)
+        .chat_as(raw, &context.request_id, roles.as_deref())
         .await
         .map_err(|e| ApiError::from_upstream(&e, state.limits.retry_after_s))?;
     context.backend(&reply.role);

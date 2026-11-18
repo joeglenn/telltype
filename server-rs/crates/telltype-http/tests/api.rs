@@ -174,7 +174,8 @@ async fn healthz_with_every_upstream_down() {
     )
     .unwrap();
     let state = AppState {
-        key: None,
+        keys: None,
+        guard: Arc::new(telltype_http::Guard::new(telltype_http::ClientPolicy::default())),
         speech: h.engine.clone(),
         speech_model: "m".into(),
         upstreams: Arc::new(upstreams),
@@ -529,7 +530,6 @@ async fn chat_bad_requests_are_400_and_not_forwarded() {
     for body in [
         "not json".to_owned(),
         "[1, 2]".to_owned(),
-        chat_json("gpt-4"),
         json!({"messages": [{"role": "user", "content": "x"}]}).to_string(),
         json!({"model": "cleanup", "messages": []}).to_string(),
         json!({"model": "cleanup"}).to_string(),
@@ -542,7 +542,11 @@ async fn chat_bad_requests_are_400_and_not_forwarded() {
             "{body}"
         );
     }
+    // An unknown model is 404 `model_not_found` (since 1.1), also never forwarded.
+    let (status, _, reply) = send(&h.app, chat_request(chat_json("gpt-4"))).await;
+    assert_eq!((status.as_u16(), code(&reply).as_str()), (404, "model_not_found"));
     assert!(h.cleanup.seen().is_empty());
+    assert!(h.commands.seen().is_empty());
 }
 
 #[tokio::test]

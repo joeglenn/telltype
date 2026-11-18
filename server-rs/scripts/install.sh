@@ -24,6 +24,9 @@ export PATH="$HOME/.cargo/bin:$PATH"
 fail() { echo "install: $*" >&2; exit 1; }
 command -v cargo >/dev/null || fail "cargo not found (install Rust from https://rustup.rs)"
 
+# The native library only from the copy checked against its pinned SHA-256 (see scripts/native.sh).
+bash "$server_dir/scripts/native.sh"
+export SHERPA_ONNX_LIB_DIR="${SHERPA_ONNX_LIB_DIR:-$server_dir/target/native/sherpa-onnx/lib}"
 cargo build --release --locked --manifest-path "$server_dir/Cargo.toml"
 changed=0
 if ! cmp -s "$server_dir/target/release/telltype-server" "$binary"; then

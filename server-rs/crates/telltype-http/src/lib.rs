@@ -5,12 +5,16 @@
 
 pub mod credentials;
 mod error;
+pub mod keys;
+pub mod limits;
 mod middleware;
 mod multipart;
 mod routes;
 mod state;
 
 pub use error::ApiError;
+pub use keys::{Identity, KeyStore};
+pub use limits::{ClientPolicy, Guard};
 pub use multipart::{MultipartError, Part, boundary, parse_parts};
 pub use routes::router;
 pub use state::{AppState, HttpLimits};

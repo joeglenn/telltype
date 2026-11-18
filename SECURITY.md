@@ -38,6 +38,8 @@ A short summary; [PRIVACY.md](PRIVACY.md) has the details.
 - Recordings are deleted after the text is typed. Logs do not contain dictated text unless verbose debug logging
   is switched on, and that switches itself off after an hour.
 - Telltype Server compares the bearer key in constant time, decodes audio in memory without temporary files, and
-  never logs audio, transcripts, prompts, replies or keys.
+  never logs audio, transcripts, prompts, replies or keys. For a server reachable from the internet (connection
+  timeouts and caps, per-address rate limits, model allow-lists, named revocable keys, the sandboxed unit, a reverse
+  proxy example) see [Running on the internet](server-rs/README.md#running-on-the-internet).
 - Release APKs are shrunk with R8 and signed; dependencies are pinned and checked with Gradle dependency
   verification and `cargo deny`; workflow actions are pinned by commit SHA.

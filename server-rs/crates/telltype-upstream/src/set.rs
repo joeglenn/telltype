@@ -27,6 +27,49 @@ pub struct UpstreamSpec {
     pub timeout: Duration,
     pub max_in_flight: usize,
     pub health_path: String,
+    /// Further model names clients may use (`*`/`?` globs); empty: `model` and the aliases only.
+    pub allow: Vec<String>,
+}
+
+impl UpstreamSpec {
+    /// Whether clients may name `model` here: the configured model, an alias or its target, or a
+    /// name matching one of [`Self::allow`].
+    #[must_use]
+    pub fn allows(&self, model: &str) -> bool {
+        model == self.model
+            || self.aliases.contains_key(model)
+            || self.aliases.values().any(|target| target == model)
+            || self.allow.iter().any(|pattern| glob(pattern, model))
+    }
+}
+
+/// `*` (any run of characters) and `?` (one character) matching, case-sensitive.
+#[must_use]
+pub fn glob(pattern: &str, text: &str) -> bool {
+    let (pattern, text): (Vec<char>, Vec<char>) = (pattern.chars().collect(), text.chars().collect());
+    let (mut p, mut t) = (0, 0);
+    let mut star: Option<(usize, usize)> = None;
+    while t < text.len() {
+        match pattern.get(p) {
+            Some('*') => {
+                star = Some((p, t));
+                p += 1;
+            }
+            Some(c) if *c == '?' || *c == text[t] => {
+                p += 1;
+                t += 1;
+            }
+            _ => match star {
+                Some((sp, st)) => {
+                    p = sp + 1;
+                    t = st + 1;
+                    star = Some((sp, st + 1));
+                }
+                None => return false,
+            },
+        }
+    }
+    pattern[p..].iter().all(|c| *c == '*')
 }
 
 pub(crate) struct Upstream {
@@ -187,6 +230,13 @@ impl Upstreams {
                 renamed_from = renamed_from.take().or(original);
                 entry
             })
+            // Only allowed models are listed, routed to and shown in /healthz.
+            .filter(|entry| {
+                entry
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .is_some_and(|id| upstream.spec.allows(id))
+            })
             .collect();
         if let Ok(mut slot) = upstream.renamed_from.write() {
             *slot = renamed_from;
@@ -251,7 +301,7 @@ impl Upstreams {
                 "model '{model}' is not known and {role} cannot be asked for its models"
             )));
         }
-        Err(UpstreamError::BadRequest(format!(
+        Err(UpstreamError::ModelNotFound(format!(
             "model '{model}' is not available (GET /v1/models lists them)"
         )))
     }

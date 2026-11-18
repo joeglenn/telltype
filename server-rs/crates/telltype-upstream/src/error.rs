@@ -5,6 +5,10 @@ pub enum UpstreamError {
     /// The request itself is wrong (400).
     #[error("{0}")]
     BadRequest(String),
+    /// The model is not on the allow-list, or not for this key's roles (404 `model_not_found`).
+    /// No upstream sees the request.
+    #[error("{0}")]
+    ModelNotFound(String),
     /// Too many requests in flight for this upstream (429).
     #[error("{role} has {limit} requests in flight, limit {limit}")]
     Busy { role: String, limit: usize },

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "1.0.1"
+version = "1.1.0"
 edition = "2024"
 rust-version = "1.94"
 publish = false
@@ -24,6 +24,7 @@ bytes = "1"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 getrandom = "0.3"
 http-body-util = "0.1"
+hyper-util = { version = "0.1", default-features = false, features = ["server-auto", "tokio"] }
 nix = { version = "0.30", default-features = false, features = ["signal", "process"] }
 proptest = "1"
 rcgen = { version = "0.14", default-features = false, features = ["crypto", "pem", "ring"] }

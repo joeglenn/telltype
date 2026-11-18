@@ -1,0 +1,46 @@
+[package]
+name = "telltype-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "Apache-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Not part of the server workspace: built only by `cargo fuzz` (nightly). See scripts/fuzz.sh.
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+telltype-http = { path = "../crates/telltype-http" }
+telltype-speech = { path = "../crates/telltype-speech" }
+telltype-upstream = { path = "../crates/telltype-upstream" }
+
+[[bin]]
+name = "multipart"
+path = "fuzz_targets/multipart.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "wav"
+path = "fuzz_targets/wav.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "audio"
+path = "fuzz_targets/audio.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "chat_json"
+path = "fuzz_targets/chat_json.rs"
+test = false
+doc = false
+bench = false

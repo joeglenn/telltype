@@ -6,7 +6,7 @@
 //! leading `~/` against `$HOME`.
 
 use std::collections::BTreeMap;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -48,6 +48,105 @@ pub struct ServerConfig {
     pub retry_after: Duration,
     pub health_timeout: Duration,
     pub shutdown_grace: Duration,
+    pub limits: ConnectionLimits,
+    pub rate: RateLimits,
+}
+
+/// Connection handling: timeouts and caps against slow and idle clients.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConnectionLimits {
+    /// Time for a client to finish the TLS handshake and each request's headers (HTTP/1), or its
+    /// first request (HTTP/2). Also how long an idle HTTP/1 keep-alive connection is kept.
+    pub header_timeout: Duration,
+    /// A connection with no bytes read or written for this long is closed.
+    pub idle_timeout: Duration,
+    /// A request body must keep arriving at `body_min_bytes_per_s` on average after this grace.
+    pub body_grace: Duration,
+    pub body_min_bytes_per_s: u64,
+    pub max_connections: usize,
+    /// Open connections per client address (IPv6: per /64). Trusted proxies are exempt.
+    pub max_connections_per_ip: usize,
+    pub http2_max_streams: u32,
+}
+
+/// Per-client token buckets.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RateLimits {
+    /// Requests per minute per client (also the burst).
+    pub requests_per_minute: u32,
+    /// Failed key checks per minute per client (also the burst); then 429 without any key check.
+    pub auth_failures_per_minute: u32,
+    /// Clients tracked at most (memory bound); the oldest are forgotten first.
+    pub max_clients: usize,
+    /// Peers whose `X-Forwarded-For` is believed (a reverse proxy on this machine, say).
+    pub trusted_proxies: Vec<IpNet>,
+    /// Clients never rate-limited or capped per address: by default loopback, the private LAN
+    /// ranges, Tailscale and Docker bridges ([`DEFAULT_EXEMPT`]); `exempt = []` for a public server.
+    pub exempt: Vec<IpNet>,
+}
+
+/// The default `limits.exempt`: loopback, RFC 1918 (which includes Docker's 172.16.0.0/12),
+/// Tailscale's CGNAT range and IPv6 ULA prefix, IPv6 link-local and unique-local addresses.
+pub const DEFAULT_EXEMPT: &[&str] = &[
+    "127.0.0.0/8",
+    "::1",
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "100.64.0.0/10",
+    "fd7a:115c:a1e0::/48",
+    "fe80::/10",
+    "fc00::/7",
+];
+
+/// An address range such as `127.0.0.1/32` or `fd00::/8`; a bare address is a single host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IpNet {
+    pub addr: IpAddr,
+    pub prefix: u8,
+}
+
+impl IpNet {
+    #[must_use]
+    pub fn contains(&self, ip: IpAddr) -> bool {
+        match (self.addr, canonical(ip)) {
+            (IpAddr::V4(net), IpAddr::V4(ip)) => {
+                let mask = u32::MAX.checked_shl(32 - u32::from(self.prefix)).unwrap_or(0);
+                u32::from(net) & mask == u32::from(ip) & mask
+            }
+            (IpAddr::V6(net), IpAddr::V6(ip)) => {
+                let mask = u128::MAX.checked_shl(128 - u32::from(self.prefix)).unwrap_or(0);
+                u128::from(net) & mask == u128::from(ip) & mask
+            }
+            _ => false,
+        }
+    }
+}
+
+impl std::str::FromStr for IpNet {
+    type Err = ();
+    fn from_str(text: &str) -> Result<Self, ()> {
+        let (addr, prefix) = match text.split_once('/') {
+            Some((addr, prefix)) => (addr, Some(prefix.parse::<u8>().map_err(|_| ())?)),
+            None => (text, None),
+        };
+        let addr = canonical(addr.trim().parse::<IpAddr>().map_err(|_| ())?);
+        let max = if addr.is_ipv4() { 32 } else { 128 };
+        let prefix = prefix.unwrap_or(max);
+        if prefix > max {
+            return Err(());
+        }
+        Ok(Self { addr, prefix })
+    }
+}
+
+/// An IPv4-mapped IPv6 address (`::ffff:a.b.c.d`, as a dual-stack socket reports IPv4 peers) as IPv4.
+#[must_use]
+pub fn canonical(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or(ip, IpAddr::V4),
+        IpAddr::V4(_) => ip,
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,8 +170,11 @@ pub struct TlsConfig {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AuthConfig {
-    /// `None` only when `open = true`: every request is served without a key.
+    /// The single key (its name in logs is `default`).
     pub key_file: Option<PathBuf>,
+    /// Named keys, one `<name>.key` file each, reloaded without a restart.
+    /// Both `None` only when `open = true`: every request is served without a key.
+    pub keys_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -108,6 +210,9 @@ pub struct UpstreamConfig {
     pub timeout: Duration,
     pub max_in_flight: usize,
     pub health_path: String,
+    /// Model names clients may use beyond `model` and the aliases (`*` and `?` globs). Default
+    /// `["*"]` (everything the upstream lists); empty: the configured model only. Anything else is 404 `model_not_found` before the upstream sees it.
+    pub allow: Vec<String>,
     pub supervise: Option<SuperviseConfig>,
 }
 
@@ -154,7 +259,7 @@ impl Config {
             toml::from_str(text).map_err(|e| ConfigError::new("", format!("invalid TOML: {e}")))?;
         let paths = Paths { base, home };
         let plain_http_confirmed = raw.tls.as_ref().and_then(|t| t.allow_plain_http).unwrap_or(false);
-        let server = server(&raw.server.unwrap_or_default())?;
+        let server = server(&raw.server.unwrap_or_default(), &raw.limits.unwrap_or_default())?;
         let tls = tls(raw.tls.unwrap_or_default(), &paths)?;
         if tls.mode == TlsMode::Off && !plain_http_confirmed {
             return Err(ConfigError::new(
@@ -198,6 +303,16 @@ impl Config {
                 "the same alias is already defined in text.cleanup.aliases",
             ));
         }
+        let longest = config_longest_wait(&speech, &cleanup, commands.as_ref());
+        if server.limits.idle_timeout <= longest {
+            return Err(ConfigError::new(
+                "limits.idle_timeout_s",
+                format!(
+                    "must be longer than the longest request wait ({} s: recognition_timeout_s and the text timeouts)",
+                    longest.as_secs_f64()
+                ),
+            ));
+        }
         Ok(Self {
             server,
             tls,
@@ -215,6 +330,19 @@ impl Config {
             .chain(self.commands.as_ref())
             .collect()
     }
+}
+
+/// The longest a request may wait with no bytes on its connection.
+fn config_longest_wait(
+    speech: &SpeechConfig,
+    cleanup: &UpstreamConfig,
+    commands: Option<&UpstreamConfig>,
+) -> Duration {
+    std::iter::once(speech.recognition_timeout)
+        .chain(std::iter::once(cleanup.timeout))
+        .chain(commands.map(|c| c.timeout))
+        .max()
+        .unwrap_or_default()
 }
 
 fn missing(key: &str) -> ConfigError {
@@ -267,7 +395,7 @@ fn at_least_one(key: &str, value: usize) -> Result<usize, ConfigError> {
     Ok(value)
 }
 
-fn server(raw: &raw::Server) -> Result<ServerConfig, ConfigError> {
+fn server(raw: &raw::Server, limits: &raw::Limits) -> Result<ServerConfig, ConfigError> {
     let listen = raw
         .listen
         .as_deref()
@@ -294,6 +422,67 @@ fn server(raw: &raw::Server) -> Result<ServerConfig, ConfigError> {
         retry_after: Duration::from_secs(retry_after_s),
         health_timeout: positive_duration("server.health_timeout_s", raw.health_timeout_s.unwrap_or(2.0))?,
         shutdown_grace: positive_duration("server.shutdown_grace_s", raw.shutdown_grace_s.unwrap_or(10.0))?,
+        limits: ConnectionLimits {
+            header_timeout: positive_duration(
+                "limits.header_timeout_s",
+                limits.header_timeout_s.unwrap_or(10.0),
+            )?,
+            idle_timeout: positive_duration("limits.idle_timeout_s", limits.idle_timeout_s.unwrap_or(300.0))?,
+            body_grace: positive_duration("limits.body_grace_s", limits.body_grace_s.unwrap_or(10.0))?,
+            body_min_bytes_per_s: limits.body_min_bytes_per_s.unwrap_or(4096),
+            max_connections: at_least_one("limits.max_connections", limits.max_connections.unwrap_or(1024))?,
+            max_connections_per_ip: at_least_one(
+                "limits.max_connections_per_ip",
+                limits.max_connections_per_ip.unwrap_or(32),
+            )?,
+            http2_max_streams: match limits.http2_max_streams.unwrap_or(32) {
+                0 => return Err(ConfigError::new("limits.http2_max_streams", "must be at least 1")),
+                n => n,
+            },
+        },
+        rate: rate(limits)?,
+    })
+}
+
+fn rate(raw: &raw::Limits) -> Result<RateLimits, ConfigError> {
+    let per_minute = |key: &str, value: Option<u32>, default: u32| {
+        let value = value.unwrap_or(default);
+        if value == 0 {
+            return Err(ConfigError::new(key, "must be at least 1"));
+        }
+        Ok(value)
+    };
+    let nets = |key: &str, list: &[String]| {
+        list.iter()
+            .map(|text| {
+                text.parse::<IpNet>().map_err(|()| {
+                    ConfigError::new(
+                        key,
+                        format!("{text:?} is not an address or range (127.0.0.1, 10.0.0.0/8, ::1)"),
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()
+    };
+    let trusted_proxies = nets(
+        "limits.trusted_proxies",
+        raw.trusted_proxies.as_deref().unwrap_or_default(),
+    )?;
+    let default_exempt: Vec<String> = DEFAULT_EXEMPT.iter().map(|n| (*n).to_owned()).collect();
+    let exempt = nets("limits.exempt", raw.exempt.as_deref().unwrap_or(&default_exempt))?;
+    Ok(RateLimits {
+        requests_per_minute: per_minute("limits.requests_per_minute", raw.requests_per_minute, 600)?,
+        auth_failures_per_minute: per_minute(
+            "limits.auth_failures_per_minute",
+            raw.auth_failures_per_minute,
+            10,
+        )?,
+        max_clients: at_least_one(
+            "limits.rate_limit_clients",
+            raw.rate_limit_clients.unwrap_or(10_000),
+        )?,
+        trusted_proxies,
+        exempt,
     })
 }
 
@@ -337,19 +526,30 @@ fn tls(raw: raw::Tls, paths: &Paths<'_>) -> Result<TlsConfig, ConfigError> {
 }
 
 fn auth(raw: raw::Auth, paths: &Paths<'_>) -> Result<AuthConfig, ConfigError> {
-    match (raw.key_file, raw.open.unwrap_or(false)) {
-        (Some(_), true) => Err(ConfigError::new(
+    let has_keys = raw.key_file.is_some() || raw.keys_dir.is_some();
+    match (has_keys, raw.open.unwrap_or(false)) {
+        (true, true) => Err(ConfigError::new(
             "auth.open",
-            "set either auth.key_file or auth.open = true",
+            "set auth.key_file and/or auth.keys_dir, or auth.open = true",
         )),
-        (None, false) => Err(ConfigError::new(
+        (false, false) => Err(ConfigError::new(
             "auth.key_file",
-            "is required (or set auth.open = true to serve without a key)",
+            "is required (or auth.keys_dir, or auth.open = true to serve without a key)",
         )),
-        (Some(file), false) => Ok(AuthConfig {
-            key_file: Some(paths.resolve("auth.key_file", &file)?),
+        (true, false) => Ok(AuthConfig {
+            key_file: raw
+                .key_file
+                .map(|file| paths.resolve("auth.key_file", &file))
+                .transpose()?,
+            keys_dir: raw
+                .keys_dir
+                .map(|dir| paths.resolve("auth.keys_dir", &dir))
+                .transpose()?,
         }),
-        (None, true) => Ok(AuthConfig { key_file: None }),
+        (false, true) => Ok(AuthConfig {
+            key_file: None,
+            keys_dir: None,
+        }),
     }
 }
 
@@ -456,6 +656,14 @@ fn upstream(
             "must start with /",
         ));
     }
+    // Absent: every model the upstream lists (as before 1.1); `[]`: the configured model only.
+    let allow = raw.allow.unwrap_or_else(|| vec!["*".to_owned()]);
+    if allow.iter().any(|pattern| pattern.trim().is_empty()) {
+        return Err(ConfigError::new(
+            format!("{prefix}.allow"),
+            "patterns must not be empty",
+        ));
+    }
     let supervise = raw
         .supervise
         .map(|s| supervise(&prefix, s, paths, &url))
@@ -474,6 +682,7 @@ fn upstream(
             raw.max_in_flight.unwrap_or(defaults.in_flight),
         )?,
         health_path,
+        allow,
         supervise,
     })
 }
@@ -583,6 +792,7 @@ mod raw {
     #[serde(deny_unknown_fields)]
     pub struct File {
         pub server: Option<Server>,
+        pub limits: Option<Limits>,
         pub tls: Option<Tls>,
         pub auth: Option<Auth>,
         pub speech: Option<Speech>,
@@ -603,6 +813,23 @@ mod raw {
 
     #[derive(Deserialize, Default)]
     #[serde(deny_unknown_fields)]
+    pub struct Limits {
+        pub header_timeout_s: Option<f64>,
+        pub idle_timeout_s: Option<f64>,
+        pub body_grace_s: Option<f64>,
+        pub body_min_bytes_per_s: Option<u64>,
+        pub max_connections: Option<usize>,
+        pub max_connections_per_ip: Option<usize>,
+        pub http2_max_streams: Option<u32>,
+        pub requests_per_minute: Option<u32>,
+        pub auth_failures_per_minute: Option<u32>,
+        pub rate_limit_clients: Option<usize>,
+        pub trusted_proxies: Option<Vec<String>>,
+        pub exempt: Option<Vec<String>>,
+    }
+
+    #[derive(Deserialize, Default)]
+    #[serde(deny_unknown_fields)]
     pub struct Tls {
         pub mode: Option<String>,
         pub cert_file: Option<String>,
@@ -616,6 +843,7 @@ mod raw {
     #[serde(deny_unknown_fields)]
     pub struct Auth {
         pub key_file: Option<String>,
+        pub keys_dir: Option<String>,
         pub open: Option<bool>,
     }
 
@@ -651,6 +879,7 @@ mod raw {
         pub timeout_s: Option<f64>,
         pub max_in_flight: Option<usize>,
         pub health_path: Option<String>,
+        pub allow: Option<Vec<String>>,
         pub supervise: Option<Supervise>,
     }
 

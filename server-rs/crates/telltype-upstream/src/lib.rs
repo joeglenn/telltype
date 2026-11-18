@@ -10,9 +10,10 @@ mod chat;
 mod error;
 mod set;
 
+pub use chat::check_chat_request;
 pub use chat::{ChatReply, ReplyBody};
 pub use error::UpstreamError;
-pub use set::{ModelList, Probe, UpstreamSpec, Upstreams};
+pub use set::{ModelList, Probe, UpstreamSpec, Upstreams, glob};
 
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;

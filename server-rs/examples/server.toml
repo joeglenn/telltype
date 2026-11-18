@@ -13,6 +13,17 @@ retry_after_s = 5
 health_timeout_s = 2
 shutdown_grace_s = 10
 
+# Connection handling and rate limits; the defaults suit a home network. For a public server see
+# README.md, "Running on the internet".
+[limits]
+# header_timeout_s = 10
+# idle_timeout_s = 300
+# max_connections_per_ip = 32
+# requests_per_minute = 600
+# auth_failures_per_minute = 10
+# trusted_proxies = ["127.0.0.1"]   # a reverse proxy on this machine
+# exempt = []                       # default: loopback, private LAN, Tailscale, Docker ranges
+
 [tls]
 mode = "self-signed"               # "self-signed" | "files" | "off"
 cert_file = "tls/cert.pem"
@@ -24,7 +35,8 @@ subject_alt_names = ["localhost", "127.0.0.1"]
 
 [auth]
 key_file = "gate.key"              # created by: telltype-server credentials --config <file>
-# open = true                      # instead of key_file: serve without a key (trusted networks only)
+# keys_dir = "keys"                # named keys: telltype-server keys add NAME --config <file>
+# open = true                      # instead of keys: serve without a key (trusted networks only)
 
 [speech]
 model_dir = "~/models/telltype/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming"
@@ -56,6 +68,7 @@ args = [
 url = "http://127.0.0.1:8173"
 model = "qwen_qwen3.5-4b-q4_k_m"
 aliases = { assistant = "qwen_qwen3.5-4b-q4_k_m" }   # deprecated name, still accepted
+# allow = ["qwen_*", "gemma-4-*"]  # default ["*"]: every model the router lists
 timeout_s = 120
 max_in_flight = 2
 

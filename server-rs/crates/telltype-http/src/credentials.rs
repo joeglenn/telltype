@@ -34,6 +34,12 @@ pub enum CredentialError {
     NotPem(PathBuf),
     #[error("the system random generator failed")]
     Random,
+    #[error("{path}: {reason}")]
+    BadKeyFile { path: PathBuf, reason: String },
+    #[error("{0:?} is not a valid key name (1 to 64 of A-Z a-z 0-9 . _ -, not starting with .)")]
+    BadName(String),
+    #[error("{0} already exists; revoke it first or choose another name")]
+    Exists(PathBuf),
 }
 
 /// What [`ensure_key`] and [`ensure_certificate`] did.
@@ -62,14 +68,14 @@ pub struct Fingerprints {
     pub spki_sha256_base64: String,
 }
 
-fn io(path: &Path) -> impl FnOnce(std::io::Error) -> CredentialError + '_ {
+pub(crate) fn io(path: &Path) -> impl FnOnce(std::io::Error) -> CredentialError + '_ {
     move |source| CredentialError::Io {
         path: path.to_path_buf(),
         source,
     }
 }
 
-fn check_private(path: &Path) -> Result<(), CredentialError> {
+pub(crate) fn check_private(path: &Path) -> Result<(), CredentialError> {
     let metadata = std::fs::metadata(path).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             CredentialError::Missing(path.to_path_buf())
@@ -181,7 +187,7 @@ fn current_year() -> i32 {
 }
 
 /// Write a secret atomically with mode 0600, creating missing directories with mode 0700.
-fn write_private(path: &Path, contents: &[u8]) -> Result<(), CredentialError> {
+pub(crate) fn write_private(path: &Path, contents: &[u8]) -> Result<(), CredentialError> {
     if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty() && !p.exists()) {
         std::fs::create_dir_all(parent).map_err(io(parent))?;
         std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700)).map_err(io(parent))?;
