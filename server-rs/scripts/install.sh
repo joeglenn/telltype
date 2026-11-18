@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Build Telltype Server and install it as a systemd user unit. Safe to run again.
+# Install Telltype Server as a systemd user unit: the prebuilt binary in bin/ when run from a release
+# archive, otherwise built from source. Safe to run again.
 #
 #   scripts/install.sh              build, install the binary, config (first run), credentials, unit;
 #                                   start the unit, or restart it if the binary or unit changed
@@ -22,15 +23,21 @@ start=1
 export PATH="$HOME/.cargo/bin:$PATH"
 
 fail() { echo "install: $*" >&2; exit 1; }
-command -v cargo >/dev/null || fail "cargo not found (install Rust from https://rustup.rs)"
 
-# The native library only from the copy checked against its pinned SHA-256 (see scripts/native.sh).
-bash "$server_dir/scripts/native.sh"
-export SHERPA_ONNX_LIB_DIR="${SHERPA_ONNX_LIB_DIR:-$server_dir/target/native/sherpa-onnx/lib}"
-cargo build --release --locked --manifest-path "$server_dir/Cargo.toml"
+if [ -x "$server_dir/bin/telltype-server" ]; then
+  # A release archive: the binary is prebuilt (and its archive checked with its .sha256 file).
+  built="$server_dir/bin/telltype-server"
+else
+  command -v cargo >/dev/null || fail "cargo not found (install Rust from https://rustup.rs, or use a release archive)"
+  # The native library only from the copy checked against its pinned SHA-256 (see scripts/native.sh).
+  bash "$server_dir/scripts/native.sh"
+  export SHERPA_ONNX_LIB_DIR="${SHERPA_ONNX_LIB_DIR:-$server_dir/target/native/sherpa-onnx/lib}"
+  cargo build --release --locked --manifest-path "$server_dir/Cargo.toml"
+  built="$server_dir/target/release/telltype-server"
+fi
 changed=0
-if ! cmp -s "$server_dir/target/release/telltype-server" "$binary"; then
-  install -D -m 0755 "$server_dir/target/release/telltype-server" "$binary"
+if ! cmp -s "$built" "$binary"; then
+  install -D -m 0755 "$built" "$binary"
   changed=1
   echo "installed $binary"
 fi

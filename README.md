@@ -120,8 +120,9 @@ encrypted with a key held in the Android Keystore. Details: [PRIVACY.md](PRIVACY
 
 - **Telltype Server** (recommended): one program that serves speech to text, runs the cleanup and command models
   through `llama-server`, generates a certificate and a key, and installs as a systemd user unit. Follow
-  [server-rs/README.md](server-rs/README.md): it downloads the models (checking their SHA-256), builds with
-  Rust 1.94 or newer and starts the server on port 8170.
+  [server-rs/README.md](server-rs/README.md): download the archive for your machine (Linux x86_64 or aarch64)
+  from the latest `server-v…` [release](https://github.com/joeglenn/telltype/releases), or build it with Rust
+  1.94 or newer; the scripts download the models (checking their SHA-256) and start the server on port 8170.
 - **Any OpenAI-compatible server**, without changes. Telltype needs:
   - `POST /v1/audio/transcriptions` for speech (an OpenAI-style transcription server);
   - `POST /v1/chat/completions` for cleanup and Command Mode, for example llama.cpp's `llama-server`;
@@ -164,7 +165,7 @@ export ANDROID_HOME=$HOME/Android/Sdk     # or sdk.dir=... in local.properties
 ./gradlew check                           # lint, ktlint, detekt, unit and screenshot tests
 ```
 
-**Telltype Server** (Rust 1.94 or newer, Linux x86_64):
+**Telltype Server** (Rust 1.94 or newer, Linux x86_64 or aarch64):
 
 ```sh
 cd server-rs

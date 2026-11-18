@@ -1,0 +1,137 @@
+# Telltype Server binaries for a server tag (server-v1.2.3): Linux x86_64 and aarch64 archives with
+# SHA-256 files, attached to their own GitHub release (never marked latest; app releases are v1.2.3).
+# Built on Ubuntu 22.04 so the binary runs on glibc 2.35 or newer (Debian 12, Raspberry Pi OS 12,
+# Ubuntu 22.04+). Run by hand (workflow_dispatch) to build and check the archives without releasing.
+name: Server release
+
+on:
+  push:
+    tags: ["server-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: x86_64
+          - runner: ubuntu-22.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: server-rs
+    env:
+      MAX_GLIBC: "2.35"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Version
+        run: |
+          version=$(sed -nE '/^\[workspace\.package\]/,/^\[/ s/^version *= *"([^"]+)".*/\1/p' Cargo.toml)
+          [ -n "$version" ] || { echo "::error::no workspace version in server-rs/Cargo.toml"; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "server-v$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match server-rs version $version"; exit 1
+          fi
+          echo "SERVER_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Toolchain (1.94, as on the build machine)
+        run: |
+          if ! command -v rustup >/dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+          fi
+          rustup toolchain install 1.94 --profile minimal
+          rustup default 1.94
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: server-rs
+          key: release-${{ matrix.arch }}
+      - name: Native library (checked against its pinned SHA-256)
+        run: bash scripts/native.sh
+      - name: Tests
+        run: cargo test --release --locked --workspace
+      - name: Build
+        run: cargo build --release --locked
+      - name: Check the binary
+        run: |
+          bin=target/release/telltype-server
+          file "$bin"
+          ldd "$bin"
+          ! ldd "$bin" | grep -q "not found"
+          ! ldd "$bin" | grep -qiE "onnx|sherpa"   # the speech library is linked in
+          need=$(objdump -T "$bin" | grep -oE "GLIBC_[0-9.]+" | sed 's/GLIBC_//' | sort -Vu | tail -1)
+          echo "needs glibc $need (limit $MAX_GLIBC)"
+          [ "$(printf '%s\n%s\n' "$need" "$MAX_GLIBC" | sort -V | tail -1)" = "$MAX_GLIBC" ] \
+            || { echo "::error::binary needs glibc $need, newer than $MAX_GLIBC"; exit 1; }
+          "$bin" --help | head -3
+          cp examples/server.toml "$RUNNER_TEMP/check.toml"
+          "$bin" check-config --config "$RUNNER_TEMP/check.toml" || echo "(check-config on the example fails without models; expected)"
+      - name: Package
+        run: |
+          name="telltype-server-$SERVER_VERSION-linux-${{ matrix.arch }}"
+          out="$RUNNER_TEMP/$name"
+          mkdir -p "$out/bin" "$out/examples" "$out/systemd" "$out/scripts" "$out/docs"
+          install -m 0755 target/release/telltype-server "$out/bin/"
+          cp examples/*.toml "$out/examples/"
+          cp systemd/telltype-server.service "$out/systemd/"
+          cp scripts/install.sh scripts/download_models.sh scripts/smoke.sh "$out/scripts/"
+          cp docs/contract.md "$out/docs/"
+          cp README.md "$out/README.md"
+          cp ../LICENSE ../NOTICE "$out/"
+          cd "$RUNNER_TEMP"
+          tar --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$(git -C "$GITHUB_WORKSPACE" log -1 --format=%ct)" \
+            -czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+          cat "$name.tar.gz.sha256"
+          tar -tzf "$name.tar.gz"
+          mkdir dist && mv "$name.tar.gz" "$name.tar.gz.sha256" dist/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: server-${{ matrix.arch }}
+          path: ${{ runner.temp }}/dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: server-*
+          path: dist
+          merge-multiple: true
+      - name: Verify the checksums
+        working-directory: dist
+        run: sha256sum -c ./*.sha256
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#server-v}"
+          cat > notes.md <<EOF
+          Telltype Server $version for Linux (x86_64 and aarch64; glibc 2.35 or newer: Debian 12, Raspberry Pi OS 12, Ubuntu 22.04 or later).
+
+          Check the download, unpack it and run the installer (no Rust needed):
+
+          \`\`\`sh
+          sha256sum -c telltype-server-$version-linux-\$(uname -m).tar.gz.sha256
+          tar -xzf telltype-server-$version-linux-\$(uname -m).tar.gz
+          cd telltype-server-$version-linux-\$(uname -m)
+          scripts/install.sh
+          \`\`\`
+
+          The full guide is in [server-rs/README.md](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/server-rs/README.md). The Android app is in the [latest release](https://github.com/$GITHUB_REPOSITORY/releases/latest).
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/*.sha256 -R "$GITHUB_REPOSITORY" \
+            --title "Telltype Server $version" --notes-file notes.md --latest=false --verify-tag

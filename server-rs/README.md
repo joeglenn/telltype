@@ -31,9 +31,35 @@ The HTTP contract (routes, fields, errors, health) is [`docs/contract.md`](docs/
 
 ## Install
 
-Needs Linux on x86_64 (tested; sherpa-onnx also publishes aarch64 libraries, untested), Rust 1.94 or newer (<https://rustup.rs>), `curl`, and for the text
-models a `llama-server` binary from [llama.cpp](https://github.com/ggml-org/llama.cpp) (any build:
-CPU, Vulkan, CUDA, ROCm, Metal). No root is needed anywhere.
+Needs Linux on x86_64 or aarch64 (64-bit Raspberry Pi 4/5 included) with glibc 2.35 or newer (Debian
+12, Raspberry Pi OS 12, Ubuntu 22.04 or later), `curl`, and for the text models a `llama-server`
+binary from [llama.cpp](https://github.com/ggml-org/llama.cpp) (any build: CPU, Vulkan, CUDA, ROCm,
+Metal). No root is needed anywhere.
+
+### From a release (no Rust needed)
+
+Server releases are tagged `server-v<version>` on the
+[releases page](https://github.com/joeglenn/telltype/releases) (the app's releases are `v<version>`).
+Download the archive for your machine and its `.sha256` file, then:
+
+```sh
+v=1.1.0; a=$(uname -m)                                            # x86_64 or aarch64
+sha256sum -c telltype-server-$v-linux-$a.tar.gz.sha256            # must print OK
+tar -xzf telltype-server-$v-linux-$a.tar.gz && cd telltype-server-$v-linux-$a
+TELLTYPE_MODEL_DIR=~/models/telltype scripts/download_models.sh   # once; verifies SHA-256
+scripts/install.sh                                                # installs, first run writes the config
+$EDITOR ~/.config/telltype/server.toml                            # paths to the models and llama-server
+scripts/install.sh                                                # credentials, unit, start
+```
+
+The archive holds the binary (`bin/telltype-server`, with the speech library linked in), the example
+configuration, the systemd unit, these scripts, the HTTP contract, this README and the licence. The
+archives are built and tested by GitHub Actions from the tagged source
+([`server-release.yml`](../.github/workflows/server-release.yml)).
+
+### From source
+
+Needs Rust 1.94 or newer (<https://rustup.rs>) as well.
 
 ```sh
 cd server-rs
@@ -43,8 +69,10 @@ $EDITOR ~/.config/telltype/server.toml                            # paths to the
 scripts/install.sh                                                # credentials, unit, start
 ```
 
-`install.sh` builds the release binary (`cargo build --release --locked`; the first build downloads
-sherpa-onnx's prebuilt static library, about 23 MB), installs it as `~/.local/bin/telltype-server`,
+`install.sh` uses the prebuilt `bin/telltype-server` when it runs from a release archive; in the
+source tree it builds the release binary (`cargo build --release --locked`; the first build
+downloads sherpa-onnx's prebuilt static library, about 23 MB, and checks it against a pinned SHA-256).
+Either way it installs the binary as `~/.local/bin/telltype-server`,
 copies [`examples/server.toml`](examples/server.toml) to `~/.config/telltype/server.toml` on the
 first run, then on later runs validates the configuration, creates the key and certificate if
 missing, installs the unit and starts it (or restarts it when the binary or unit changed). It refuses
