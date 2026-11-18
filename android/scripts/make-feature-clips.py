@@ -43,6 +43,11 @@ CLIPS = {
     "command-capitals": "Write it in all capital letters.",
     "command-greeting": "Add a friendly greeting at the start.",
     "command-last": "Remove the last sentence.",
+    # README and site screenshots: friendly dictations into a chat, an email and a browser search.
+    "chat-late": "Hey, um, I'm running about ten minutes late, so uh, save me a seat.",
+    "chat-dinner": "Sounds great, let's do dinner on Thursday at seven.",
+    "email-draft": "Thanks for the notes from today. I'll send the updated draft on Friday.",
+    "search-hikes": "easy hiking trails near the lake that allow dogs",
 }
 
 

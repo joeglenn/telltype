@@ -18,11 +18,11 @@ Speech to text and cleanup run on your own server. Nothing goes anywhere else.
 </div>
 
 <p align="center">
-  <img src="site/assets/bubble-ready.webp" width="200" alt="A text field with the keyboard open and the Telltype bubble, a round microphone button, just above the keyboard on the right.">
+  <img src="site/assets/bubble-ready.webp" width="200" alt="Google Messages in dark mode, a reply to a friend open with the keyboard up and the Telltype bubble, a round microphone button, just above the keyboard on the right.">
   &nbsp;
-  <img src="site/assets/bubble-listening.webp" width="200" alt="The bubble while listening: a blue pill with a cancel cross, the recording time and a finish tick.">
+  <img src="site/assets/bubble-listening.webp" width="200" alt="The bubble while listening in Google Messages: a blue pill with a cancel cross, a level meter and a finish tick.">
   &nbsp;
-  <img src="site/assets/text-typed.webp" width="200" alt="The dictated sentence typed into the field, with Raw and Undo buttons offered beside the bubble.">
+  <img src="site/assets/text-typed.webp" width="200" alt="The cleaned-up sentence typed into the Google Messages reply field, with Raw and Undo buttons offered beside the bubble.">
 </p>
 
 Telltype is a dictation app for Android. A small bubble sits above the keyboard whenever you type. Tap it, speak,
@@ -84,7 +84,7 @@ flowchart LR
 ```
 
 1. You tap the bubble. Telltype records with the microphone (a foreground service, with Android's microphone
-   indicator on) and shows the recording time.
+   indicator on) and shows a level meter (and the recording time after 10 seconds).
 2. When you finish, the audio goes to your server's speech model. Telltype Server uses Parakeet Unified EN 0.6B
    through sherpa-onnx, on the CPU.
 3. The transcript, the tone for the app you are in and the text around the cursor go to the cleanup model
