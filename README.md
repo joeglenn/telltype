@@ -84,20 +84,10 @@ own server, [Telltype Server](server-rs/README.md), and also works with any Open
 
 ## How it works
 
-```mermaid
-flowchart LR
-    subgraph phone["Your Android phone"]
-        app["Telltype<br/>bubble over any app"]
-    end
-    subgraph server["Your server"]
-        stt["Speech model<br/>/v1/audio/transcriptions"]
-        clean["Cleanup model<br/>/v1/chat/completions"]
-        cmd["Command model<br/>/v1/chat/completions"]
-    end
-    app -- "audio" --> stt
-    app -- "transcript + context" --> clean
-    app -- "selection + instruction" --> cmd
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="site/assets/how-it-works-dark.svg">
+  <img src="site/assets/how-it-works-light.svg" width="100%" alt="How Telltype works: the app on your phone sends audio to the speech model, the transcript and context to the cleanup model, and a selection with an instruction to the command model, all on your server.">
+</picture>
 
 1. You tap the bubble. Telltype records with the microphone (a foreground service, with Android's microphone
    indicator on) and shows a level meter (and the recording time after 10 seconds).
