@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shared Lint configuration. Every warning is an error (warningsAsErrors) and there is no baseline. -->
+<lint>
+    <!-- Versions are pinned deliberately in gradle/libs.versions.toml (docs/PLAN.md section 15);
+         upgrades are a planned change, not a build failure. -->
+    <issue id="GradleDependency" severity="ignore" />
+    <issue id="NewerVersionAvailable" severity="ignore" />
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    <!-- A library's own lint checks were built against a different lint API and are skipped by lint
+         (today: androidx.lifecycle 2.11.0 against AGP 9.5.1). Reported, but not a build failure,
+         because the fix is a library upgrade, not a code change. -->
+    <issue id="ObsoleteLintCustomCheck" severity="informational" />
+</lint>

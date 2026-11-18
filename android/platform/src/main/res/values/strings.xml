@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Accessibility service (Appendix F). -->
+    <string name="a11y_label">Telltype</string>
+    <string name="a11y_summary">Dictation bubble for any text field</string>
+    <string name="a11y_description">Telltype shows a small microphone bubble when you type in a text field. It reads which field has focus and the text around the cursor, and types what you dictate into that field. Password and number fields are skipped. Speech is sent only to the server you set up.</string>
+
+    <!-- Notification channels. -->
+    <string name="channel_recording">Recording</string>
+    <string name="channel_results">Dictation results</string>
+    <string name="channel_problems">Problems</string>
+
+    <!-- Microphone service notification. -->
+    <string name="mic_notification_title">Listening</string>
+    <string name="mic_notification_text">Telltype is using the microphone for a dictation.</string>
+
+    <!-- Notices (docs/PLAN.md sections 8.5 and 10). -->
+    <string name="notice_transcribed_title">Transcribed later</string>
+    <string name="notice_transcribed_public">A saved dictation was transcribed.</string>
+    <string name="notice_action_copy">Copy</string>
+    <string name="notice_recovered_title">Recovered dictations</string>
+    <plurals name="notice_recovered_text">
+        <item quantity="one">Recovered %d dictation. It will be transcribed when the server is reachable.</item>
+        <item quantity="other">Recovered %d dictations. They will be transcribed when the server is reachable.</item>
+    </plurals>
+    <string name="notice_accessibility_off_title">Bubble is off</string>
+    <string name="notice_accessibility_off_text">The accessibility service is switched off, so the bubble cannot show. Tap to fix.</string>
+    <string name="notice_advanced_protection_title">Advanced Protection is on</string>
+    <string name="notice_advanced_protection_text">The bubble cannot show. Dictations still reach the clipboard and History.</string>
+    <string name="notice_problem_title">Dictation problem</string>
+    <string name="notice_problem_text">A dictation ended with a problem while the bubble was hidden. Open Telltype to see it.</string>
+</resources>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Telltype test host</string>
+    <string name="field_label">Field under test</string>
+    <string name="other_field_label">Other field</string>
+    <string name="tap_target_initial">Taps: 0</string>
+    <string name="tap_target_count">Taps: %1$d</string>
+    <string name="close">Close</string>
+    <string name="search_hint">Search</string>
+    <string name="placeholder_hint">Type a message</string>
+    <string name="prefilled_text">The quick brown fox</string>
+    <string name="permission_dialog">Permission dialog: the system asks for the camera permission over this screen.</string>
+    <string name="chat_messages">No messages yet.</string>
+    <string name="send">Send</string>
+    <string name="send_short">➤</string>
+</resources>

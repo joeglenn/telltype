@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "default": "as_spoken",
+  "tones": {
+    "as_spoken": "Keep the speaker's own words and register; only remove fillers and fix punctuation.",
+    "formal": "Complete sentences and standard punctuation. Write gonna or wanna as going to or want to, and leave out chatty openers like yeah or so.",
+    "casual": "Relaxed and natural, contractions are fine.",
+    "very_casual": "Like a quick text message: lower case is fine, no final period."
+  }
+}

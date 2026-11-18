@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "default": "other",
+  "categories": {
+    "email": "email",
+    "work_chat": "work chat",
+    "personal_chat": "personal chat",
+    "notes_documents": "notes and documents",
+    "ai_chat": "AI chat",
+    "code": "code",
+    "browser": "browser",
+    "other": "other"
+  }
+}

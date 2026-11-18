@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- A field in this test APK's own process: while it is focused the process may read the clipboard, so the
+             paste step's restore of the previous clip can be checked end to end. -->
+        <activity
+            android:name="net.jbglenn.telltype.platform.emulator.OwnFieldActivity"
+            android:exported="false"
+            android:windowSoftInputMode="stateAlwaysVisible" />
+
+        <!-- Spike S2 outside instrumentation: triggered by `adb shell am broadcast -n` after the test run. Only
+             senders holding DUMP (the shell) may trigger it. -->
+        <receiver
+            android:name="net.jbglenn.telltype.platform.emulator.S2ProbeReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
+</manifest>

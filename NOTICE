@@ -1,0 +1,26 @@
+Telltype
+Copyright 2026 Joe Glenn
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Third-party material in this repository
+---------------------------------------
+- android/app/src/debug/assets/sample/phoebe.wav (debug builds only; not in the release APK):
+  copied from the sherpa-onnx Parakeet model archive (test_wavs/0.wav), believed to be LibriSpeech
+  dev-clean utterance 2086-149220-0033 (identified by its transcript). LibriSpeech is licensed under
+  CC BY 4.0: Vassil Panayotov, Guoguo Chen, Daniel Povey and Sanjeev Khudanpur, "LibriSpeech: an ASR
+  corpus based on public domain audio books", ICASSP 2015.
+- android/app/src/debug/assets/sample/*.wav other than phoebe.wav (debug builds only): machine-generated speech made
+  with the Supertonic 3 text-to-speech model (OpenRAIL-M) by android/scripts/make-feature-clips.py.
+- android/app/src/main/assets/selftest/sample.wav: machine-generated speech, made with the Supertonic 3
+  text-to-speech model (OpenRAIL-M) by android/scripts/make-selftest-sample.py.
+
+Models the server downloads (not distributed with Telltype)
+-----------------------------------------------------------
+- NVIDIA Parakeet (sherpa-onnx export): NVIDIA Open Model License.
+- Gemma 4 and Qwen3.5 models: Apache License 2.0.
+
+Credits
+-------
+Telltype's feature set was inspired by OpenWhispr (MIT License, https://github.com/OpenWhispr/openwhispr).
+No OpenWhispr code or prompt text is included.

@@ -1,0 +1,39 @@
+[package]
+name = "telltype-http"
+description = "Telltype Server: HTTP API (auth, limits, errors, health, timings, logs) and TLS material"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+axum.workspace = true
+base64.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+getrandom.workspace = true
+rcgen.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+subtle.workspace = true
+telltype-config.workspace = true
+telltype-speech.workspace = true
+telltype-upstream.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+telltype-speech = { workspace = true, features = ["test-support"] }
+telltype-upstream = { workspace = true, features = ["test-support"] }
+http-body-util.workspace = true
+proptest.workspace = true
+reqwest.workspace = true
+tower.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

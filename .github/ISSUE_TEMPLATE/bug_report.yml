@@ -1,0 +1,66 @@
+name: Bug report
+description: Something does not work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please do not paste server keys, real addresses, certificate fingerprints or
+        recordings here; replace them with values such as `192.0.2.10`. Security problems go through
+        [private reporting](https://github.com/joeglenn/telltype/security/advisories/new) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        1. Opened a text field in ...
+        2. Tapped the bubble and said ...
+        3. Expected ..., but ...
+    validations:
+      required: true
+  - type: dropdown
+    id: part
+    attributes:
+      label: Part
+      options:
+        - Android app
+        - Telltype Server
+        - Both / not sure
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: Telltype version
+      description: App info (long-press the Telltype icon) shows the app version; for the server, the release or commit you built.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone and Android version
+      placeholder: "Pixel 8, Android 16"
+  - type: input
+    id: target-app
+    attributes:
+      label: App you were dictating into
+      placeholder: "Gmail, a browser text field, ..."
+  - type: dropdown
+    id: server
+    attributes:
+      label: Server
+      options:
+        - Telltype Server
+        - Another OpenAI-compatible server (say which below)
+        - Not relevant
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and details
+      description: |
+        Diagnostics in the app shows the server check and the time each stage took, and can export a debug bundle
+        (look through it before attaching it). For Telltype Server, the matching lines from
+        `journalctl --user -u telltype-server`.
+      render: text

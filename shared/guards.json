@@ -1,0 +1,696 @@
+{
+  "version": 2,
+  "order": [
+    "empty",
+    "assistant_phrasing",
+    "length",
+    "unspoken_words",
+    "echo",
+    "snippet_markers"
+  ],
+  "reply_extraction": {
+    "strip_leading_think_block": {
+      "open": "<think>",
+      "close": "</think>"
+    },
+    "unescape_entities": [
+      [
+        "&lt;",
+        "<"
+      ],
+      [
+        "&gt;",
+        ">"
+      ],
+      [
+        "&quot;",
+        "\""
+      ],
+      [
+        "&amp;",
+        "&"
+      ]
+    ],
+    "wrapping_quote_pairs": [
+      [
+        "\"",
+        "\""
+      ],
+      [
+        "“",
+        "”"
+      ]
+    ]
+  },
+  "normalisation": {
+    "unicode_form": "NFKC",
+    "apostrophes": [
+      "’",
+      "‘",
+      "ʼ",
+      "′",
+      "`"
+    ],
+    "number_separators": ".,:/-",
+    "ordinal_suffixes": [
+      "st",
+      "nd",
+      "rd",
+      "th"
+    ],
+    "list_marker_prefixes": [
+      "-",
+      "*",
+      "•"
+    ],
+    "numbered_list_max_digits": 2
+  },
+  "empty": {},
+  "assistant_phrasing": {
+    "anywhere": [
+      "as an ai",
+      "as an assistant",
+      "as a language model",
+      "language model",
+      "i'm an ai",
+      "i am an ai",
+      "i can't help",
+      "i cannot help",
+      "i can not help",
+      "i can't assist",
+      "i cannot assist",
+      "i can't do that",
+      "i cannot do that",
+      "i'm unable to",
+      "i am unable to",
+      "i'm not able to",
+      "i am not able to",
+      "i won't be able to",
+      "i can't comply",
+      "i cannot comply",
+      "i must decline",
+      "i'm sorry but",
+      "i am sorry but",
+      "sorry but i",
+      "i apologize",
+      "i apologise",
+      "i hope this helps",
+      "hope this helps",
+      "let me know if",
+      "feel free to",
+      "happy to help",
+      "glad to help",
+      "how can i help",
+      "how can i assist",
+      "anything else i can",
+      "is there anything else",
+      "great question",
+      "good question",
+      "the cleaned",
+      "cleaned up",
+      "cleaned text",
+      "cleaned version",
+      "corrected text",
+      "corrected version",
+      "edited text",
+      "the transcript",
+      "the speaker",
+      "the user",
+      "you provided",
+      "dictated text",
+      "the dictation"
+    ],
+    "at_start": [
+      "sure",
+      "certainly",
+      "of course",
+      "absolutely",
+      "okay here",
+      "ok here",
+      "here is",
+      "here's",
+      "here are",
+      "answer",
+      "the answer",
+      "cleaned",
+      "corrected",
+      "output",
+      "result",
+      "note"
+    ]
+  },
+  "length": {
+    "upper_ratio": 1.6,
+    "upper_margin_tokens": 6,
+    "lower_ratio": 0.25,
+    "lower_min_units": 8,
+    "fail_on_finish_reason": [
+      "length"
+    ]
+  },
+  "unspoken_words": {
+    "allowance_ratio": 0.15,
+    "ignore_single_character_tokens": true,
+    "free_words": [
+      "a",
+      "an",
+      "the",
+      "and",
+      "or",
+      "to",
+      "of"
+    ],
+    "equivalents": [
+      [
+        [
+          "gonna"
+        ],
+        [
+          "going",
+          "to"
+        ]
+      ],
+      [
+        [
+          "wanna"
+        ],
+        [
+          "want",
+          "to"
+        ]
+      ],
+      [
+        [
+          "gotta"
+        ],
+        [
+          "got",
+          "to"
+        ]
+      ],
+      [
+        [
+          "gotta"
+        ],
+        [
+          "have",
+          "to"
+        ]
+      ],
+      [
+        [
+          "kinda"
+        ],
+        [
+          "kind",
+          "of"
+        ]
+      ],
+      [
+        [
+          "sorta"
+        ],
+        [
+          "sort",
+          "of"
+        ]
+      ],
+      [
+        [
+          "lemme"
+        ],
+        [
+          "let",
+          "me"
+        ]
+      ],
+      [
+        [
+          "gimme"
+        ],
+        [
+          "give",
+          "me"
+        ]
+      ],
+      [
+        [
+          "dunno"
+        ],
+        [
+          "don't",
+          "know"
+        ]
+      ],
+      [
+        [
+          "cannot"
+        ],
+        [
+          "can",
+          "not"
+        ]
+      ],
+      [
+        [
+          "ok"
+        ],
+        [
+          "okay"
+        ]
+      ],
+      [
+        [
+          "alright"
+        ],
+        [
+          "all",
+          "right"
+        ]
+      ],
+      [
+        [
+          "yeah"
+        ],
+        [
+          "yes"
+        ]
+      ],
+      [
+        [
+          "yep"
+        ],
+        [
+          "yes"
+        ]
+      ],
+      [
+        [
+          "yup"
+        ],
+        [
+          "yes"
+        ]
+      ],
+      [
+        [
+          "nope"
+        ],
+        [
+          "no"
+        ]
+      ],
+      [
+        [
+          "till"
+        ],
+        [
+          "until"
+        ]
+      ],
+      [
+        [
+          "cause"
+        ],
+        [
+          "because"
+        ]
+      ],
+      [
+        [
+          "cuz"
+        ],
+        [
+          "because"
+        ]
+      ],
+      [
+        [
+          "thru"
+        ],
+        [
+          "through"
+        ]
+      ],
+      [
+        [
+          "tho"
+        ],
+        [
+          "though"
+        ]
+      ],
+      [
+        [
+          "ya"
+        ],
+        [
+          "you"
+        ]
+      ],
+      [
+        [
+          "email"
+        ],
+        [
+          "e",
+          "mail"
+        ]
+      ],
+      [
+        [
+          "percent"
+        ],
+        [
+          "per",
+          "cent"
+        ]
+      ],
+      [
+        [
+          "thanks"
+        ],
+        [
+          "thank"
+        ]
+      ],
+      [
+        [
+          "mins"
+        ],
+        [
+          "minutes"
+        ]
+      ],
+      [
+        [
+          "min"
+        ],
+        [
+          "minute"
+        ]
+      ],
+      [
+        [
+          "hrs"
+        ],
+        [
+          "hours"
+        ]
+      ],
+      [
+        [
+          "omw"
+        ],
+        [
+          "on",
+          "my",
+          "way"
+        ]
+      ],
+      [
+        [
+          "pls"
+        ],
+        [
+          "please"
+        ]
+      ],
+      [
+        [
+          "thx"
+        ],
+        [
+          "thanks"
+        ]
+      ],
+      [
+        [
+          "tomorrow"
+        ],
+        [
+          "to",
+          "morrow"
+        ]
+      ],
+      [
+        [
+          "today"
+        ],
+        [
+          "to",
+          "day"
+        ]
+      ],
+      [
+        [
+          "tonight"
+        ],
+        [
+          "to",
+          "night"
+        ]
+      ]
+    ],
+    "contractions": {
+      "suffixes": {
+        "n't": [
+          "not"
+        ],
+        "'re": [
+          "are"
+        ],
+        "'ve": [
+          "have"
+        ],
+        "'ll": [
+          "will"
+        ],
+        "'d": [
+          "would",
+          "had",
+          "did"
+        ],
+        "'m": [
+          "am"
+        ],
+        "'s": [
+          "is",
+          "has",
+          "us",
+          "does"
+        ]
+      },
+      "possessive_suffix": "'s",
+      "stem_overrides": {
+        "ca": "can",
+        "wo": "will",
+        "sha": "shall",
+        "ai": "is"
+      }
+    },
+    "number_words": {
+      "units": {
+        "oh": 0,
+        "zero": 0,
+        "one": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "six": 6,
+        "seven": 7,
+        "eight": 8,
+        "nine": 9,
+        "first": 1,
+        "second": 2,
+        "third": 3,
+        "fourth": 4,
+        "fifth": 5,
+        "sixth": 6,
+        "seventh": 7,
+        "eighth": 8,
+        "ninth": 9
+      },
+      "teens": {
+        "ten": 10,
+        "eleven": 11,
+        "twelve": 12,
+        "thirteen": 13,
+        "fourteen": 14,
+        "fifteen": 15,
+        "sixteen": 16,
+        "seventeen": 17,
+        "eighteen": 18,
+        "nineteen": 19,
+        "tenth": 10,
+        "eleventh": 11,
+        "twelfth": 12,
+        "thirteenth": 13,
+        "fourteenth": 14,
+        "fifteenth": 15,
+        "sixteenth": 16,
+        "seventeenth": 17,
+        "eighteenth": 18,
+        "nineteenth": 19
+      },
+      "tens": {
+        "twenty": 20,
+        "thirty": 30,
+        "forty": 40,
+        "fifty": 50,
+        "sixty": 60,
+        "seventy": 70,
+        "eighty": 80,
+        "ninety": 90,
+        "twentieth": 20,
+        "thirtieth": 30,
+        "fortieth": 40,
+        "fiftieth": 50,
+        "sixtieth": 60,
+        "seventieth": 70,
+        "eightieth": 80,
+        "ninetieth": 90
+      },
+      "scales": {
+        "hundred": 100,
+        "thousand": 1000,
+        "million": 1000000,
+        "billion": 1000000000,
+        "hundredth": 100,
+        "thousandth": 1000,
+        "millionth": 1000000
+      },
+      "months": {
+        "january": 1,
+        "february": 2,
+        "march": 3,
+        "april": 4,
+        "may": 5,
+        "june": 6,
+        "july": 7,
+        "august": 8,
+        "september": 9,
+        "october": 10,
+        "november": 11,
+        "december": 12
+      },
+      "connectors": [
+        "and"
+      ],
+      "max_run_words": 20
+    }
+  },
+  "echo": {
+    "ngram_size": 6,
+    "min_source_tokens": 2,
+    "ignore_ngrams_with_digits": true,
+    "tag_names": [
+      "transcript",
+      "tone",
+      "dictionary",
+      "context",
+      "selection",
+      "instruction",
+      "think"
+    ]
+  },
+  "snippet_markers": {
+    "open": "⟦",
+    "prefix": "S",
+    "close": "⟧",
+    "max_digits": 2,
+    "regex": "⟦S[0-9]{1,2}⟧"
+  },
+  "fallback": {
+    "fillers": [
+      "um",
+      "umm",
+      "ummm",
+      "uh",
+      "uhh",
+      "uhhh",
+      "uhm",
+      "er",
+      "erm",
+      "hmm",
+      "hmmm",
+      "hm",
+      "mm",
+      "mmm"
+    ],
+    "edge_punctuation": ",.;:!?…",
+    "terminal_punctuation": ".!?…",
+    "soft_final_punctuation": ",;:",
+    "pronoun_i_forms": [
+      "i",
+      "i'm",
+      "i'll",
+      "i've",
+      "i'd"
+    ],
+    "question_openers_wh": [
+      "what",
+      "what's",
+      "where",
+      "where's",
+      "who",
+      "who's",
+      "why",
+      "how",
+      "how's",
+      "which"
+    ],
+    "question_openers_aux": [
+      "is",
+      "are",
+      "am",
+      "was",
+      "were",
+      "can",
+      "could",
+      "would",
+      "will",
+      "should",
+      "shall",
+      "do",
+      "does",
+      "did",
+      "have",
+      "has",
+      "isn't",
+      "aren't",
+      "wasn't",
+      "weren't",
+      "can't",
+      "couldn't",
+      "wouldn't",
+      "won't",
+      "shouldn't",
+      "don't",
+      "doesn't",
+      "didn't",
+      "haven't",
+      "hasn't"
+    ],
+    "question_subjects": [
+      "i",
+      "you",
+      "we",
+      "they",
+      "he",
+      "she",
+      "it",
+      "there",
+      "this",
+      "that",
+      "anyone",
+      "anybody",
+      "someone",
+      "somebody",
+      "everyone",
+      "everybody",
+      "y'all"
+    ]
+  }
+}

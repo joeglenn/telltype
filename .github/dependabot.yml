@@ -1,0 +1,8 @@
+# Action versions only. Gradle and Python dependencies are locked and verified (verification-metadata.xml,
+# requirements.lock), so they are updated deliberately in a package, not by bot pull requests.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

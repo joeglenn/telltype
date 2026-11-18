@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/joeglenn/telltype/security/advisories/new
+    about: Please report security problems privately, not as a public issue.
+  - name: Set up Telltype Server
+    url: https://github.com/joeglenn/telltype/blob/main/server-rs/README.md
+    about: Installation, configuration and troubleshooting for the server.

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Web fields</title>
+  <style>
+    body { font-family: sans-serif; margin: 8px; }
+    input, textarea { width: 100%; font-size: 18px; min-height: 48px; box-sizing: border-box; }
+    textarea { height: 120px; }
+  </style>
+</head>
+<body>
+  <label for="web_input">Web input</label>
+  <input id="web_input" type="text" value="{{INPUT_VALUE}}" {{INPUT_AUTOFOCUS}}>
+  <label for="web_textarea">Web textarea</label>
+  <textarea id="web_textarea" {{TEXTAREA_AUTOFOCUS}}>{{TEXTAREA_VALUE}}</textarea>
+</body>
+</html>

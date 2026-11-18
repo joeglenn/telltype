@@ -1,0 +1,33 @@
+[package]
+name = "telltype-speech"
+description = "Telltype Server: in-memory audio decoding and speech recognition (sherpa-onnx, Parakeet)"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+sherpa-onnx.workspace = true
+symphonia.workspace = true
+symphonia-opus.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = ["static"]
+# How sherpa-onnx's native library is linked: "static" (default, one self-contained binary, the
+# prebuilt static archive) or "shared" (libsherpa-onnx-c-api.so and libonnxruntime.so from
+# SHERPA_ONNX_LIB_DIR or the prebuilt shared archive).
+static = ["sherpa-onnx/static"]
+shared = ["sherpa-onnx/shared"]
+# Helpers for other crates' tests (a WAV writer and a fake recogniser); never enabled in the binary.
+test-support = []

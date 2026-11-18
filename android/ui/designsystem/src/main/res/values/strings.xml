@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Error messages (docs/PLAN.md section 10): short, plain, no blame. -->
+  <string name="error_mic_permission_missing">Microphone needed</string>
+  <string name="error_accessibility_disabled">Accessibility is switched off</string>
+  <string name="error_local_network_permission_missing">Local network access needed</string>
+  <string name="error_mic_in_use">Microphone is in use</string>
+  <string name="error_recorder_failed">Couldn\'t start recording</string>
+  <string name="error_no_speech">Didn\'t catch that</string>
+  <string name="error_storage_full">Storage is full</string>
+  <string name="error_storage_failed">Couldn\'t save. Will try later</string>
+  <string name="error_server_not_configured">Set up your server first</string>
+  <string name="error_server_unreachable">Saved. Will transcribe later</string>
+  <string name="error_certificate_mismatch">The server\'s certificate changed</string>
+  <string name="error_key_rejected">The server rejected the key</string>
+  <string name="error_server_warming_up">The server is warming up</string>
+  <string name="error_server_failed">The server had a problem. Saved for later</string>
+  <string name="error_request_rejected">The server couldn\'t use this recording</string>
+  <string name="error_malformed_response">The server sent an unexpected reply</string>
+  <string name="error_empty_transcript">Didn\'t catch that</string>
+  <string name="error_speech_engine_failed">Speech engine failed. Saved for later</string>
+  <string name="error_cleanup_timeout">The rewrite took too long</string>
+  <string name="error_cleanup_rejected">The rewrite didn\'t look right</string>
+  <string name="error_selection_unreadable">Couldn\'t read the selected text</string>
+  <string name="error_field_changed">The field changed. Ready to paste</string>
+  <string name="error_field_gone">The field closed. Ready to paste</string>
+  <string name="error_insert_not_confirmed">Couldn\'t confirm the text arrived</string>
+  <string name="error_field_protected">Can\'t type into this field</string>
+  <string name="error_unexpected">Something went wrong. Saved for later</string>
+
+  <!-- Shared component labels. -->
+  <string name="ds_open">Open</string>
+  <string name="ds_dismiss">Dismiss</string>
+  <string name="ds_cancel">Cancel</string>
+  <string name="ds_selected">Selected</string>
+  <string name="ds_not_selected">Not selected</string>
+  <string name="ds_expand">Show choices</string>
+  <string name="ds_collapse">Hide choices</string>
+  <string name="ds_loading">Loading</string>
+  <string name="ds_navigate_up">Back</string>
+  <string name="error_model_not_found">Your server does not offer the chosen model. Choose one in Settings, Models</string>
+  <string name="connection_unreachable">Couldn\'t reach the server at this address. Check the address, this phone\'s connection, and the VPN if your server needs one.</string>
+  <string name="connection_server_error">The server answered with an error. Check that your server is running.</string>
+  <string name="connection_rejected">The server refused the request. Update the app or the server.</string>
+</resources>

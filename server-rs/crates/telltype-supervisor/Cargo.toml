@@ -1,0 +1,21 @@
+[package]
+name = "telltype-supervisor"
+description = "Telltype Server: runs llama-server processes (start, health, restart with back-off, stop)"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+nix.workspace = true
+reqwest.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+
+[lints]
+workspace = true

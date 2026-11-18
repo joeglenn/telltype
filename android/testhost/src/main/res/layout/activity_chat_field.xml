@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A chat app's screen: an empty message area, and at the bottom the message field ("field") with a send button
+     ("send") beside it at the right end of the row, outside the field, like Telegram's microphone button. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/messages"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="16dp"
+        android:text="@string/chat_messages" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+
+        <net.jbglenn.telltype.testhost.HostEditText
+            android:id="@+id/field"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="@string/placeholder_hint"
+            android:importantForAutofill="no"
+            android:inputType="textMultiLine|textCapSentences"
+            android:minHeight="48dp" />
+
+        <Button
+            android:id="@+id/send"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:contentDescription="@string/send"
+            android:text="@string/send_short" />
+    </LinearLayout>
+</LinearLayout>

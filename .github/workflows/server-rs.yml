@@ -1,0 +1,45 @@
+# Telltype Server (Rust): fmt, clippy (pedantic, from [workspace.lints]), tests with an 85 % line-coverage floor,
+# cargo deny. The same script as on the build machine; the slow real-model test is skipped (no models on the runner).
+name: Server (Rust)
+
+on:
+  push:
+    branches: [main]
+    paths: ["server-rs/**", ".github/workflows/server-rs.yml"]
+  pull_request:
+    paths: ["server-rs/**", ".github/workflows/server-rs.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: server-rs-${{ github.ref }}
+  # Pushes to main queue (the newest waiting run replaces older waiting ones); pull requests cancel stale runs.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: server-rs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Toolchain (1.94, as on the build machine)
+        run: |
+          rustup toolchain install 1.94 --profile minimal --component clippy,rustfmt,llvm-tools-preview
+          rustup default 1.94
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: server-rs
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+        with:
+          tool: cargo-llvm-cov,cargo-deny
+      - name: Gate
+        run: |
+          status=0
+          bash scripts/gate.sh || status=$?
+          [ $status -eq 0 ] || for f in target/gate/*.log; do echo "::group::$f"; tail -60 "$f"; echo "::endgroup::"; done
+          exit $status

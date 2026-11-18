@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "cleanup": {
+    "model": "cleanup",
+    "stream": false,
+    "temperature": 0.1,
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    },
+    "max_tokens": {
+      "chars_per_token": 3,
+      "ratio": 1.5,
+      "margin": 32,
+      "min": 64,
+      "max": 2048
+    },
+    "context_before_max_chars": 500
+  },
+  "command": {
+    "model": "assistant",
+    "stream": false,
+    "temperature": 0.1,
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    },
+    "max_tokens": {
+      "chars_per_token": 3,
+      "ratio": 2.0,
+      "margin": 64,
+      "min": 128,
+      "max": 4096
+    }
+  }
+}

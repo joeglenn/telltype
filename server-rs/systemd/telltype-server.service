@@ -1,0 +1,33 @@
+# Telltype Server as a systemd user unit (example).
+#
+#   install -m 0644 systemd/telltype-server.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now telltype-server
+#   journalctl --user -u telltype-server -f        # one JSON object per line
+#
+# Adjust TELLTYPE_CONFIG if the configuration lives elsewhere. The server supervises its
+# llama-server processes itself (when configured), so this is the only unit needed.
+[Unit]
+Description=Telltype Server: speech to text and text models for the Telltype app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+Environment=TELLTYPE_CONFIG=%h/.config/telltype/server.toml
+Environment=TELLTYPE_LOG=info
+ExecStart=%h/.local/bin/telltype-server serve
+# Exit code 2 is a configuration or credential error: do not restart in a loop, fix the file.
+RestartPreventExitStatus=2
+Restart=always
+RestartSec=3
+# Graceful shutdown: requests finish within server.shutdown_grace_s, then supervised llama-servers
+# get SIGTERM (and SIGKILL after their stop timeout).
+TimeoutStopSec=45
+KillMode=mixed
+# Audio is only ever held in memory; the service needs no writable directory beyond its config and
+# state (presets file, generated certificate on first start).
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

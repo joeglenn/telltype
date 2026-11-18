@@ -1,0 +1,71 @@
+# Telltype Server: example configuration (generic).
+#
+# Copy to the configuration directory (for example ~/.config/telltype/server.toml), adjust the
+# paths, then: telltype-server check-config --config <file>. Every key is described in README.md
+# ("Configuration reference"). Relative paths are relative to this file's directory; ~/ is $HOME.
+
+[server]
+listen = "0.0.0.0:8170"
+max_upload_bytes = 26214400        # 25 MiB for the audio file part
+multipart_overhead_bytes = 1048576 # the rest of a multipart upload
+max_json_bytes = 1048576           # chat request bodies
+retry_after_s = 5
+health_timeout_s = 2
+shutdown_grace_s = 10
+
+[tls]
+mode = "self-signed"               # "self-signed" | "files" | "off"
+cert_file = "tls/cert.pem"
+key_file = "tls/key.pem"
+common_name = "telltype-server"
+# Every name and address clients use to reach the server (only used when generating).
+subject_alt_names = ["localhost", "127.0.0.1"]
+# allow_plain_http = true          # required together with mode = "off"
+
+[auth]
+key_file = "gate.key"              # created by: telltype-server credentials --config <file>
+# open = true                      # instead of key_file: serve without a key (trusted networks only)
+
+[speech]
+model_dir = "~/models/telltype/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming"
+model_name = "parakeet-unified-en-0.6b-int8"
+threads = 8
+max_concurrent = 2
+max_waiting = 4
+max_audio_seconds = 360
+recognition_timeout_s = 120
+hotwords = false
+
+[text.cleanup]
+url = "http://127.0.0.1:8172"
+model = "gemma-4-e4b-it-qat-q4_0"
+aliases = { cleanup = "gemma-4-e4b-it-qat-q4_0" }   # deprecated name, still accepted
+timeout_s = 60
+max_in_flight = 4
+
+[text.cleanup.supervise]
+binary = "~/llama.cpp/build/bin/llama-server"
+args = [
+    "--model", "~/models/telltype/gemma-4-E4B_q4_0-it.gguf",
+    "--alias", "gemma-4-e4b-it-qat-q4_0",
+    "--n-gpu-layers", "999", "--parallel", "1", "--ctx-size", "8192", "--threads", "4",
+    "--cache-ram", "0", "--no-webui", "--jinja", "--reasoning", "off", "--reasoning-budget", "0",
+]
+
+[text.commands]
+url = "http://127.0.0.1:8173"
+model = "qwen_qwen3.5-4b-q4_k_m"
+aliases = { assistant = "qwen_qwen3.5-4b-q4_k_m" }   # deprecated name, still accepted
+timeout_s = 120
+max_in_flight = 2
+
+[text.commands.supervise]
+binary = "~/llama.cpp/build/bin/llama-server"
+args = ["--no-webui", "--jinja", "--reasoning", "off", "--reasoning-budget", "0"]
+
+[text.commands.supervise.router]
+model_dirs = ["~/models/telltype"]
+# models_ini = "~/llama.cpp/models.ini"   # optional: also offer another router's presets
+presets_file = "~/.local/state/telltype/commands-presets.ini"
+models_max = 1
+defaults = { n-gpu-layers = "999", ctx-size = "8192", parallel = "1", cache-ram = "0" }

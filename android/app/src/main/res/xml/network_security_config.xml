@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  D60: plain HTTP is allowed to private addresses only (RFC 1918, loopback, link-local, 100.64.0.0/10, IPv6 ULA and
+  .local names). Android's network security config can name domains but not IP ranges, so it cannot express that
+  rule: cleartext is permitted here and the rule is enforced in the app, twice. Setup refuses http:// to any other
+  address before saving it (ui/screens AddressParsing), and :network refuses a plain-HTTP call to a host that is
+  not private before sending anything (ServerRouter) and drops every resolved address that is not private
+  (PrivateOnlyDns). The app has exactly one HTTP client (:network GateClients) and no WebView.
+  HTTPS trusts the system's CAs only (never user-added CAs); a self-signed certificate is trusted only after the
+  user confirmed its fingerprint in Setup, by :network's pinning trust manager (D25).
+  tools:ignore="InsecureBaseConfiguration": lint flags exactly this permission; the reason is the paragraph above.
+-->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

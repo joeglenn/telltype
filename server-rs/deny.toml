@@ -1,0 +1,48 @@
+# cargo-deny: licences compatible with a free-software release, security advisories, sources.
+# Run: cargo deny --locked check   (part of scripts/gate.sh)
+
+[graph]
+targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+
+[advisories]
+# Vulnerabilities and unsound crates always fail; yanked versions fail; unmaintained crates fail
+# only when they are our direct dependencies.
+yanked = "deny"
+unmaintained = "workspace"
+ignore = []
+
+[licenses]
+# Permissive licences plus MPL-2.0 (weak, file-level copyleft: Symphonia and its Opus decoder).
+# All are compatible with releasing Telltype as free software under GPL-3.0 or Apache-2.0.
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    # MIT-0 (OSI) and bzip2-1.0.6 (BSD-style, FSF free): only in sherpa-onnx-sys's build script,
+    # which unpacks the prebuilt native library; nothing of them is linked into the binary.
+    "MIT-0",
+    "bzip2-1.0.6",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.9
+
+[licenses.private]
+# Our own crates are `publish = false`; the project's licence is chosen at release (see README).
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

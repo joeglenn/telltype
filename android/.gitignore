@@ -1,0 +1,7 @@
+# Additions to the repository root .gitignore for the Android build.
+.gradle/
+.kotlin/
+build/
+local.properties
+captures/
+*.hprof

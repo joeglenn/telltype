@@ -1,0 +1,71 @@
+# Build, static checks, unit tests and screenshot (golden) comparison for the Android app.
+# The connected (emulator) suite needs the real server and runs on the build machine: android/scripts/connected-tests.sh.
+name: Android
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["server/**", "server-rs/**", "docs/**", "**/*.md"]
+  pull_request:
+    paths-ignore: ["server/**", "server-rs/**", "docs/**", "**/*.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  # Pushes to main queue (the newest waiting run replaces older waiting ones); pull requests cancel stale runs.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: check and assemble
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: "platform-tools platforms;android-37.0 build-tools;37.0.0"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+      # Hosted runners have less memory than the build machine: these override android/gradle.properties for CI only.
+      - name: Size Gradle for the runner
+        run: |
+          mkdir -p ~/.gradle
+          cat >> ~/.gradle/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
+          kotlin.daemon.jvmargs=-Xmx1536m
+          org.gradle.workers.max=2
+          EOF
+
+      - name: Gate (the same tasks as on the build machine)
+        run: ./gradlew check assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest :testhost:assembleDebug
+      - name: Reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports
+          path: |
+            android/**/build/reports/
+            android/**/build/outputs/roborazzi/
+            android/**/build/test-results/
+          retention-days: 14
+      - name: Debug APKs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: debug-apks
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/androidTest/debug/*.apk
+            android/testhost/build/outputs/apk/debug/*.apk
+          retention-days: 14

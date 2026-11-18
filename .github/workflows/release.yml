@@ -1,0 +1,88 @@
+# Signed release APK for a version tag (v1.2.3), attached to a GitHub release with its SHA-256 file.
+# The tag sets the app version (-Ptelltype.version); a tag that is not v<major>.<minor>.<patch> fails the run.
+# Needs the repository secrets RELEASE_KEYSTORE_BASE64, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: "platform-tools platforms;android-37.0 build-tools;37.0.0"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+      # Hosted runners have less memory than the build machine: these override android/gradle.properties for CI only.
+      - name: Size Gradle for the runner
+        run: |
+          mkdir -p ~/.gradle
+          cat >> ~/.gradle/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
+          kotlin.daemon.jvmargs=-Xmx1536m
+          org.gradle.workers.max=2
+          EOF
+
+      - name: Version from the tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! [[ "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)$ ]]; then
+            echo "::error::tag $GITHUB_REF_NAME is not v<major>.<minor>.<patch>"; exit 1
+          fi
+          echo "TELLTYPE_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Signing material
+        env:
+          KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          for v in KEYSTORE STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            [ -n "${!v}" ] || { echo "::error::release signing secret for $v is not set"; exit 1; }
+          done
+          dir="$RUNNER_TEMP/signing"; mkdir -m 700 "$dir"
+          echo "$KEYSTORE" | base64 -d > "$dir/release.jks"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$dir/release.jks" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > "$dir/signing.properties"
+          echo "SIGNING_PROPERTIES=$dir/signing.properties" >> "$GITHUB_ENV"
+      - name: Gate and release build
+        run: ./gradlew check :app:assembleRelease -PtelltypeSigningProperties="$SIGNING_PROPERTIES" -Ptelltype.version="$TELLTYPE_VERSION"
+      - name: Verify the signature
+        env:
+          RELEASE_CERT_SHA256: f03a8c5821ab277a4c57723bc1f7403aa72f75cad935f266bde294030b92a8e9
+        run: |
+          apk=$(ls app/build/outputs/apk/release/*.apk)
+          # Signed with Telltype's release key (its certificate's SHA-256 is published in README.md).
+          certs=$("$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs "$apk")
+          echo "$certs" | grep -E "certificate (DN|SHA-256 digest)"
+          echo "$certs" | grep -qi "certificate SHA-256 digest: $RELEASE_CERT_SHA256" \
+            || { echo "::error::the APK is not signed with the release certificate"; exit 1; }
+          cd "$RUNNER_TEMP"
+          cp "$OLDPWD/$apk" "telltype-$TELLTYPE_VERSION.apk"
+          sha256sum "telltype-$TELLTYPE_VERSION.apk" > "telltype-$TELLTYPE_VERSION.apk.sha256"
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP/telltype-$TELLTYPE_VERSION.apk"
+          "$RUNNER_TEMP/telltype-$TELLTYPE_VERSION.apk.sha256" --generate-notes --verify-tag
+      - name: Remove signing material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/signing"

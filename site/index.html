@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Telltype: dictation for Android on your own server</title>
+  <meta name="description" content="Telltype is a free, open-source Android dictation app. Speak, and cleaned-up text is typed into any app. Speech to text and cleanup run on your own server.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f6f8f8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f1416" media="(prefers-color-scheme: dark)">
+  <meta property="og:title" content="Telltype">
+  <meta property="og:description" content="Dictation for Android that types into any app, with speech to text on your own server.">
+  <meta property="og:image" content="https://joeglenn.github.io/telltype/assets/home.webp">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap header-row">
+      <a class="brand" href="./" aria-label="Telltype home">
+        <img src="assets/icon.svg" width="32" height="32" alt="">
+        <span>Telltype</span>
+      </a>
+      <nav aria-label="Main">
+        <ul class="nav">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#privacy">Privacy</a></li>
+          <li><a href="#server">Server</a></li>
+          <li><a href="https://github.com/joeglenn/telltype">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Free and open source · Android 13+</p>
+          <h1 id="hero-title">Talk. Your words appear in any app.</h1>
+          <p class="lede">A small bubble sits above the keyboard. Tap it, speak, and clean, punctuated text is typed at
+            the cursor: in your email, your chats, your notes. Speech to text and cleanup run on
+            <strong>your own server</strong>, and nowhere else.</p>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/joeglenn/telltype/releases/latest">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M11 4h2v9.17l3.59-3.58L18 11l-6 6-6-6 1.41-1.41L11 13.17zM5 19h14v2H5z"/></svg>
+              Download for Android
+            </a>
+            <a class="button secondary" href="#server">Run your own server</a>
+          </div>
+          <p class="fine">Signed APK on GitHub Releases. Apache License 2.0.</p>
+        </div>
+        <div class="hero-shots">
+          <figure class="phone back">
+            <img src="assets/bubble-listening.webp" width="540" height="1200" alt="The bubble while listening: a blue pill with a cancel cross, the recording time and a finish tick, above the keyboard.">
+          </figure>
+          <figure class="phone front">
+            <img src="assets/text-typed.webp" width="540" height="1200" alt="The dictated sentence typed into a text field, with Raw and Undo buttons offered beside the bubble.">
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="flow-title">
+      <div class="wrap">
+        <h2 id="flow-title" class="center">Tap, speak, done</h2>
+        <ol class="steps">
+          <li>
+            <img src="assets/bubble-ready.webp" width="540" height="1200" loading="lazy" alt="A text field with the keyboard open and the round Telltype bubble just above the keyboard on the right.">
+            <h3>Tap the bubble</h3>
+            <p>It shows up only while you are typing in a text field, and docks to the edge you choose.</p>
+          </li>
+          <li>
+            <img src="assets/bubble-listening.webp" width="540" height="1200" loading="lazy" alt="The listening bubble with a cancel cross, the recording time and a finish tick.">
+            <h3>Speak naturally</h3>
+            <p>Pause, say "um", change your mind mid-sentence. Tap ✓ to finish or ✕ to throw it away.</p>
+          </li>
+          <li>
+            <img src="assets/text-typed.webp" width="540" height="1200" loading="lazy" alt="The cleaned-up sentence in the field, with Raw and Undo buttons.">
+            <h3>Text appears</h3>
+            <p>Cleaned up and typed at the cursor. <em>Raw</em> swaps in the untouched transcript, <em>Undo</em> removes it.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="features" class="section" aria-labelledby="features-title">
+      <div class="wrap">
+        <h2 id="features-title" class="center">Everything you need to stop typing</h2>
+        <ul class="cards">
+          <li class="card">
+            <h3>Types where you are</h3>
+            <p>No keyboard switch and no copy and paste. If an app refuses the text, it waits on the clipboard with a Paste button, and it is always in History.</p>
+          </li>
+          <li class="card">
+            <h3>Cleanup that edits, not rewrites</h3>
+            <p>Fillers go, false starts are dropped and "5 pm, no actually 6 pm" becomes "6 pm". If the model is slow, simple rules tidy the text instead.</p>
+          </li>
+          <li class="card">
+            <h3>A tone for every app</h3>
+            <p>Email reads like email, chat reads like chat. Pick formal, casual, very casual or as spoken for each kind of app, and override it per app.</p>
+          </li>
+          <li class="card">
+            <h3>Your words, spelled your way</h3>
+            <p>A dictionary for names and jargon with "sounds like" forms, and snippets: say "my address" and get the saved text.</p>
+          </li>
+          <li class="card">
+            <h3>Command Mode</h3>
+            <p>Select text, tap the bubble and say "make this a bulleted list", "shorter" or "more polite". Undo brings the original back.</p>
+          </li>
+          <li class="card">
+            <h3>Never loses a word</h3>
+            <p>When your server cannot be reached the dictation is queued and transcribed later. History keeps what you said, with search and an archive.</p>
+          </li>
+        </ul>
+
+        <div class="gallery" role="group" aria-label="Screenshots of the app">
+          <figure>
+            <img src="assets/home.webp" width="540" height="1200" loading="lazy" alt="The home screen: Ready to dictate, the bubble switch, today's word count and speaking speed, and recent dictations.">
+            <figcaption>Home</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/history.webp" width="540" height="1200" loading="lazy" alt="The History screen with a search field and recent dictations, each with app, time and duration.">
+            <figcaption>History</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/settings-models.webp" width="540" height="1200" loading="lazy" alt="Settings: the speech, cleanup and command models chosen from the server's list, and the bubble's colour presets.">
+            <figcaption>Models and bubble</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/settings.webp" width="540" height="1200" loading="lazy" alt="Settings: dictation and cleanup options, such as the longest recording and how long to wait for the model.">
+            <figcaption>Settings</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="how" class="section band" aria-labelledby="how-title">
+      <div class="wrap">
+        <h2 id="how-title" class="center">How it works</h2>
+        <div class="diagram" role="img" aria-label="Diagram: your Android phone sends audio to the speech model, the transcript and context to the cleanup model, and a selection with an instruction to the command model, all on your server.">
+          <div class="node phone-node">
+            <span class="node-title">Your phone</span>
+            <span class="node-sub">Telltype bubble over any app</span>
+          </div>
+          <div class="arrows" aria-hidden="true">
+            <span>audio →</span>
+            <span>transcript + context →</span>
+            <span>selection + instruction →</span>
+          </div>
+          <div class="node server-node">
+            <span class="node-title">Your server</span>
+            <span class="model">Speech model <code>/v1/audio/transcriptions</code></span>
+            <span class="model">Cleanup model <code>/v1/chat/completions</code></span>
+            <span class="model">Command model <code>/v1/chat/completions</code></span>
+          </div>
+        </div>
+        <div class="how-grid">
+          <p>The recording goes to your server's speech model: Telltype Server uses NVIDIA Parakeet through sherpa-onnx, on the CPU. The transcript, the tone for the app you are in and the text around the cursor go to a small language model that cleans it up. The result is typed through Android's accessibility service, and the recording is deleted.</p>
+          <dl class="stats">
+            <div><dt>0.15–0.2 s</dt><dd>to transcribe a 7 s clip, model warm</dd></div>
+            <div><dt>0.25–0.4 s</dt><dd>typical cleanup</dd></div>
+            <div><dt>1.0–1.6 s</dt><dd>from end of speech to typed text</dd></div>
+          </dl>
+        </div>
+        <p class="fine center">Measured with a Ryzen AI MAX+ 395 server and a Pixel 10 Pro XL connected over Tailscale.</p>
+      </div>
+    </section>
+
+    <section id="privacy" class="section" aria-labelledby="privacy-title">
+      <div class="wrap narrow">
+        <h2 id="privacy-title" class="center">Private by design</h2>
+        <ul class="checks">
+          <li><strong>One destination.</strong> Audio and text go only to the server address you enter. No analytics, no crash-reporting service, no advertising id, no account.</li>
+          <li><strong>No audio kept.</strong> A recording is deleted as soon as its text is typed.</li>
+          <li><strong>History on your terms.</strong> Kept on the phone for 30 days by default, adjustable or off. Archived entries stay until you delete them.</li>
+          <li><strong>Secrets stay secret.</strong> Your server key is encrypted with a key held in the Android Keystore. A self-signed certificate is pinned once you confirm it.</li>
+        </ul>
+        <p class="center"><a href="https://github.com/joeglenn/telltype/blob/main/PRIVACY.md">Read the full privacy notice</a></p>
+      </div>
+    </section>
+
+    <section id="server" class="section band" aria-labelledby="server-title">
+      <div class="wrap server-grid">
+        <div>
+          <h2 id="server-title">Run your own server</h2>
+          <p><strong>Telltype Server</strong> is one program for Linux that gives the app everything it needs: speech to text, plus the cleanup and command models through llama.cpp's <code>llama-server</code>, which it starts and watches for you. It makes its own certificate and key, decodes audio in memory and never writes it to disk.</p>
+          <p>Already run a model server? Telltype works with any OpenAI-compatible server for transcription and chat, with or without a key, over HTTPS or plain HTTP on a private network.</p>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/joeglenn/telltype/blob/main/server-rs/README.md">Server guide</a>
+            <a class="button secondary" href="https://github.com/joeglenn/telltype">Source on GitHub</a>
+          </div>
+        </div>
+        <pre class="terminal" aria-label="Installing Telltype Server"><code><span class="prompt">$</span> cd server-rs
+<span class="prompt">$</span> scripts/download_models.sh   <span class="dim"># checks SHA-256</span>
+<span class="prompt">$</span> scripts/install.sh           <span class="dim"># build, install</span>
+<span class="prompt">$</span> $EDITOR ~/.config/telltype/server.toml
+<span class="prompt">$</span> scripts/install.sh           <span class="dim"># key, certificate, start</span></code></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-row">
+      <p>Telltype · © 2026 Joe Glenn · <a href="https://github.com/joeglenn/telltype/blob/main/LICENSE">Apache License 2.0</a></p>
+      <ul class="nav">
+        <li><a href="https://github.com/joeglenn/telltype">GitHub</a></li>
+        <li><a href="https://github.com/joeglenn/telltype/releases">Releases</a></li>
+        <li><a href="https://github.com/joeglenn/telltype/blob/main/PRIVACY.md">Privacy</a></li>
+        <li><a href="https://github.com/joeglenn/telltype/blob/main/SECURITY.md">Security</a></li>
+      </ul>
+    </div>
+    <p class="wrap fine">Inspired by <a href="https://github.com/OpenWhispr/openwhispr">OpenWhispr</a>; not affiliated with it.</p>
+  </footer>
+</body>
+</html>

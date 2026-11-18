@@ -1,0 +1,42 @@
+# secrets and local state
+*.key
+*.pem
+*.jks
+*.keystore
+.env
+# python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+# android / gradle
+android/**/.gradle/
+android/**/build/
+android/local.properties
+android/.kotlin/
+*.apk
+*.aab
+# models and audio never belong here
+*.gguf
+*.onnx
+*.bin
+*.wav
+!eval/golden/**/*.wav
+# The debug build's clip microphone (package A7b); never in release builds.
+!android/app/src/debug/assets/sample/phoebe.wav
+# The feature tests' synthetic clips (package V1, android/scripts/make-feature-clips.py); debug builds only.
+!android/app/src/debug/assets/sample/*.wav
+# The Diagnostics self-test sample of every build type: a synthetic neutral sentence (android/scripts/make-selftest-sample.py).
+!android/app/src/main/assets/selftest/sample.wav
+# editor
+.idea/
+*.iml
+# per-agent git worktrees
+.worktrees/
+
+# Internal working documents live in a private repository (~/telltype-internal).
+/docs/
+/AGENTS.md
+/android/docs/
+/eval/
+/scripts/rename/

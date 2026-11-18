@@ -1,0 +1,65 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.94"
+publish = false
+license = "Apache-2.0"
+repository = "https://github.com/joeglenn/telltype"
+
+[workspace.dependencies]
+telltype-config = { path = "crates/telltype-config" }
+telltype-speech = { path = "crates/telltype-speech" }
+telltype-upstream = { path = "crates/telltype-upstream" }
+telltype-supervisor = { path = "crates/telltype-supervisor" }
+telltype-http = { path = "crates/telltype-http" }
+
+axum = { version = "0.8", default-features = false, features = ["http1", "http2", "tokio", "json"] }
+axum-server = { version = "0.9", features = ["tls-rustls-ring"] }
+base64 = "0.22"
+bytes = "1"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+getrandom = "0.3"
+http-body-util = "0.1"
+nix = { version = "0.30", default-features = false, features = ["signal", "process"] }
+proptest = "1"
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "pem", "ring"] }
+reqwest = { version = "0.13", default-features = false, features = ["stream"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+sherpa-onnx = { version = "=2.0.1", default-features = false }
+subtle = "2"
+symphonia = { version = "0.6.1", default-features = false, features = ["ogg", "mkv", "wav", "pcm", "flac", "vorbis", "mp3", "aac", "isomp4", "adpcm"] }
+symphonia-opus = "0.1.3"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync", "signal", "process", "io-util", "fs"] }
+toml = "0.9"
+tower = { version = "0.5", default-features = false, features = ["util"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "env-filter", "std", "ansi"] }
+uuid = { version = "1", features = ["v4"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+# Pedantic lints allowed on purpose:
+# - module_name_repetitions: crate-prefixed type names (SpeechError in telltype-speech) read better at use sites.
+module_name_repetitions = "allow"
+# - missing_errors_doc: every fallible function returns one typed error enum documented at its definition.
+missing_errors_doc = "allow"
+# - cast_precision_loss: sample counts and milliseconds converted to f64/f32 for timing and durations only.
+cast_precision_loss = "allow"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4

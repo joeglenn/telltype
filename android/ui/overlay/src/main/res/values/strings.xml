@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="bubble_name">Dictation bubble</string>
+  <string name="bubble_start_dictation">Start dictation</string>
+  <string name="bubble_start_command">Start a command</string>
+  <string name="bubble_explain">Explain</string>
+  <string name="bubble_cancel">Cancel</string>
+  <string name="bubble_finish">Finish</string>
+  <string name="bubble_release_to_cancel">Release to cancel</string>
+
+  <string name="bubble_state_ready">Ready</string>
+  <string name="bubble_state_ready_offline">Ready. The server is offline, recordings are kept</string>
+  <string name="bubble_state_ready_command">Ready for a command on the selected text</string>
+  <string name="bubble_state_unavailable">Unavailable. %1$s</string>
+  <string name="bubble_state_arming">Starting</string>
+  <string name="bubble_state_listening">Listening</string>
+  <string name="bubble_state_working">Working</string>
+  <string name="bubble_state_done">Done</string>
+  <string name="bubble_state_problem">Problem. %1$s</string>
+  <string name="bubble_working_transcribing">Transcribing</string>
+  <string name="bubble_working_polishing">Polishing</string>
+
+  <string name="bubble_reason_microphone">Microphone needed</string>
+  <string name="bubble_reason_server">Set up your server first</string>
+  <string name="bubble_explain_microphone">Dictation needs the microphone permission.</string>
+  <string name="bubble_explain_server">Connect to your server in the app first.</string>
+
+  <string name="bubble_action_retry">Retry</string>
+  <string name="bubble_action_fix">Fix</string>
+  <string name="bubble_action_copy">Copy</string>
+  <string name="bubble_action_paste">Paste</string>
+  <string name="bubble_action_raw">Raw</string>
+  <string name="bubble_action_undo">Undo</string>
+  <string name="bubble_action_dismiss">Dismiss</string>
+  <string name="bubble_click_retry">try again</string>
+  <string name="bubble_click_fix">open the fix</string>
+  <string name="bubble_click_copy">copy the text</string>
+  <string name="bubble_click_paste">paste the text here</string>
+  <string name="bubble_click_raw">use the transcript without cleanup</string>
+  <string name="bubble_click_undo">remove the dictated text</string>
+  <string name="bubble_click_dismiss">close this message</string>
+
+  <string name="bubble_chip_busy">Working on it…</string>
+  <string name="bubble_chip_ending_soon">1 minute left</string>
+  <string name="bubble_chip_learn">Learn “%1$s” → “%2$s”?</string>
+  <string name="bubble_chip_learn_action">Learn</string>
+
+  <string name="bubble_action_hide_hour">Hide for 1 hour</string>
+  <string name="bubble_action_never_here">Never show in this app</string>
+  <string name="bubble_snooze_hour">Hide for 1 hour</string>
+  <string name="bubble_snooze_app">Hide in this app for now</string>
+  <string name="bubble_menu_title">Bubble options</string>
+  <string name="bubble_menu_close">Close</string>
+  <string name="bubble_timer">%1$d:%2$02d</string>
+</resources>
