@@ -4,8 +4,8 @@
 
 # Telltype
 
-**Talk, and your words appear in any app on your Android phone.**<br>
-Speech to text and cleanup run on your own server. Nothing goes anywhere else.
+**Talk the way you talk. Get the text you meant, in any app on your Android phone.**<br>
+Free and open source. Speech to text and cleanup run on your own server, and nowhere else.
 
 [![Android](https://github.com/joeglenn/telltype/actions/workflows/android.yml/badge.svg)](https://github.com/joeglenn/telltype/actions/workflows/android.yml)
 [![Server (Rust)](https://github.com/joeglenn/telltype/actions/workflows/server-rs.yml/badge.svg)](https://github.com/joeglenn/telltype/actions/workflows/server-rs.yml)
@@ -25,32 +25,48 @@ Speech to text and cleanup run on your own server. Nothing goes anywhere else.
   <img src="site/assets/text-typed.webp" width="200" alt="The cleaned-up sentence typed into the Google Messages reply field, with Raw and Undo buttons offered beside the bubble.">
 </p>
 
-Telltype is a dictation app for Android. A small bubble sits above the keyboard whenever you type. Tap it, speak,
-tap ✓, and cleaned-up text is typed at the cursor of whatever app you are in: no keyboard switch, no copy and
-paste. The heavy lifting happens on a server you run: speech recognition with NVIDIA Parakeet, and a small language
-model that removes fillers, follows your corrections and fixes punctuation. Telltype ships its own server,
-[Telltype Server](server-rs/README.md), and also works with any OpenAI-compatible server.
+## What you say → what gets typed
 
-## Features
+| You say | Telltype types |
+|---|---|
+| *the the report is uh basically done I just need to um add the charts* | The report is basically done. I just need to add the charts. |
+| *let's meet at five pm no actually six pm* | Let's meet at 6 pm. |
+| *my appointment is on march third at two thirty* | My appointment is on March 3 at 2:30. |
+| *pack the following um charger passport headphones and the blue jacket* | Pack the following:<br>- Charger<br>- Passport<br>- Headphones<br>- The blue jacket |
 
-- **Types where you are.** The bubble appears only while a text field has focus and the keyboard is open. Text is
-  typed at the cursor; if an app refuses it, the text goes to the clipboard with a Paste button, and it is always
-  in History.
-- **Tap or hold.** Tap to start and ✓ to finish, or hold the bubble while you speak. ✕ cancels and keeps nothing.
-- **Cleanup that edits, not rewrites.** "um" and "like" go, false starts are dropped, "5 pm, no actually 6 pm"
-  becomes "6 pm". If the model is slow or its answer fails a check, simple rules tidy the raw transcript instead.
-  **Raw** swaps in the untouched transcript and **Undo** removes the text for a few seconds afterwards.
-- **A tone per kind of app.** Email, work chat, personal chat, notes, AI chat, code, browser: each has a tone you
-  choose (formal, casual, very casual or as spoken), and you can override the category per app.
-- **Reads around the cursor.** Up to 500 characters before and 200 after the cursor go to your server with the
+Real output of Telltype's default cleanup model (Gemma 4 E4B) with the app's own prompt, taken from its test runs.
+
+Telltype is a dictation app for Android, inspired by [Wispr Flow](https://wisprflow.ai): you talk the way you
+talk, with ums, restarts and "no wait, six", and what lands in the app is what you meant, written the way you would
+write it. A small bubble sits above the keyboard whenever you type. Tap it, speak, tap ✓, and the text is typed at
+the cursor of whatever app you are in: no keyboard switch, no copy and paste. The work happens on a server you run:
+speech recognition with NVIDIA Parakeet, and a small language model that tidies the transcript. Telltype ships its
+own server, [Telltype Server](server-rs/README.md), and also works with any OpenAI-compatible server.
+
+## What you get
+
+- **Talk naturally.** Fillers and false starts are left out, punctuation and capitals are added, and swearing stays
+  if you said it. Numbers, times and dates come out as digits, and a spoken list becomes a list.
+- **It types what you meant.** "No wait", "I mean" and "scratch that" are followed, not typed. If the model is slow
+  or its answer fails a check, simple rules tidy the raw transcript instead. **Raw** swaps in exactly what you said
+  and **Undo** removes the text for a few seconds afterwards.
+- **It sounds right in every app.** The same words come out as "I am going to be 10 minutes late. Sorry, traffic is
+  crazy." in an email and "yeah so i'm gonna be 10 minutes late sorry traffic is crazy" in a chat with a friend.
+  Email, work chat, personal chat, notes, AI chat, code and browser each get a tone you choose (formal, casual,
+  very casual or as spoken), and you can override the category per app.
+- **Your names, spelled right.** A dictionary for names and jargon, with "sounds like" forms: with "Kubernetes" in
+  it, "the cooper netties cluster is down again" is typed as "The Kubernetes cluster is down again." Telltype can
+  offer to learn a word when you correct it after dictating. **Snippets**: say "my address" and get the saved text.
+- **Edit text by voice.** Select text, tap the bubble and say what to do: "make this a bulleted list", "shorter",
+  "more polite". "send me the report by friday. i need it for the board meeting." plus "make this more polite"
+  became "Could you please send me the report by Friday? I need it for the board meeting." Undo brings the
+  original back.
+- **Knows where you are.** Up to 500 characters before and 200 after the cursor go to your server with the
   dictation, so names and context come out right. Never stored.
-- **Dictionary.** Names and jargon spelled your way, with "sounds like" forms. Telltype can offer to learn a word
-  when you correct it after dictating.
-- **Snippets.** Say "my address" and get the saved text, without a trip through the model.
-- **Command Mode.** Select text, tap the bubble and say what to do: "make this a bulleted list", "shorter",
-  "more polite". The reply replaces the selection; Undo brings the original back.
-- **Works when the server does not.** A dictation that cannot reach the server is queued and transcribed later.
-- **History** with search, swipe right to archive, swipe left to delete (with Undo), and a retention period you set.
+- **Types where you are.** The bubble appears only while a text field has focus and the keyboard is open. If an app
+  refuses the text, it goes to the clipboard with a Paste button, and it is always in History.
+- **Never loses a word.** A dictation that cannot reach the server is queued and transcribed later. **History** has
+  search, swipe right to archive, swipe left to delete (with Undo), and a retention period you set.
 - **Skips sensitive fields.** No bubble on password fields, and an exclusion list that starts with common password
   managers and authenticator apps.
 - **Diagnostics.** A self-test that sends a bundled clip through the whole pipeline, the time each stage took, and
@@ -172,8 +188,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full set of checks.
 
 Telltype is licensed under the [Apache License 2.0](LICENSE). Copyright 2026 Joe Glenn.
 
-- Telltype's feature set was inspired by [OpenWhispr](https://github.com/OpenWhispr/openwhispr) (MIT License). No
-  OpenWhispr code or prompt text is included.
+- Telltype is inspired by [Wispr Flow](https://wisprflow.ai), which showed how good dictation can feel. Telltype
+  is not affiliated with Wispr.
+- Its feature set also draws on [OpenWhispr](https://github.com/OpenWhispr/openwhispr) (MIT License). No
+  OpenWhispr code or prompt text is included, and Telltype is not affiliated with it.
 - Speech recognition: NVIDIA Parakeet (NVIDIA Open Model License) through
   [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx). Text models: Gemma 4 and Qwen3.5 (Apache License 2.0), served
   by [llama.cpp](https://github.com/ggml-org/llama.cpp). The server downloads these models; they are not part of

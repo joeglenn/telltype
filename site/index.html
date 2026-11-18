@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Telltype: dictation for Android on your own server</title>
-  <meta name="description" content="Telltype is a free, open-source Android dictation app. Speak, and cleaned-up text is typed into any app. Speech to text and cleanup run on your own server.">
+  <title>Telltype: talk the way you talk, get the text you meant</title>
+  <meta name="description" content="Telltype is free, open-source dictation for Android, inspired by Wispr Flow. Talk the way you talk, and the text you meant is typed into any app. Everything runs on your own server.">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#f6f8f8" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0f1416" media="(prefers-color-scheme: dark)">
   <meta property="og:title" content="Telltype">
-  <meta property="og:description" content="Dictation for Android that types into any app, with speech to text on your own server.">
+  <meta property="og:description" content="Talk the way you talk, get the text you meant, in any Android app. Free, open source, on your own server.">
   <meta property="og:image" content="https://joeglenn.github.io/telltype/assets/home.webp">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
@@ -25,6 +25,7 @@
       </a>
       <nav aria-label="Main">
         <ul class="nav">
+          <li><a href="#examples">Examples</a></li>
           <li><a href="#features">Features</a></li>
           <li><a href="#how">How it works</a></li>
           <li><a href="#privacy">Privacy</a></li>
@@ -40,16 +41,16 @@
       <div class="wrap hero-grid">
         <div class="hero-copy">
           <p class="eyebrow">Free and open source · Android 13+</p>
-          <h1 id="hero-title">Talk. Your words appear in any app.</h1>
-          <p class="lede">A small bubble sits above the keyboard. Tap it, speak, and clean, punctuated text is typed at
-            the cursor: in your email, your chats, your notes. Speech to text and cleanup run on
-            <strong>your own server</strong>, and nowhere else.</p>
+          <h1 id="hero-title">Talk the way you talk. Get the text you meant.</h1>
+          <p class="lede">Say "um", start over, change your mind halfway through. Telltype types what you meant,
+            punctuated and written the way you would write it, at the cursor of whatever app you are in.
+            Everything runs on <strong>your own server</strong>.</p>
           <div class="actions">
             <a class="button primary" href="https://github.com/joeglenn/telltype/releases/latest">
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M11 4h2v9.17l3.59-3.58L18 11l-6 6-6-6 1.41-1.41L11 13.17zM5 19h14v2H5z"/></svg>
               Download for Android
             </a>
-            <a class="button secondary" href="#server">Run your own server</a>
+            <a class="button secondary" href="#examples">See what it does</a>
           </div>
           <p class="fine">Signed APK on GitHub Releases. Apache License 2.0.</p>
         </div>
@@ -61,6 +62,53 @@
             <img src="assets/text-typed.webp" width="540" height="1200" alt="The dictated sentence typed into a Google Messages reply, with Raw and Undo buttons offered beside the bubble.">
           </figure>
         </div>
+      </div>
+    </section>
+
+    <section id="examples" class="section examples" aria-labelledby="examples-title">
+      <div class="wrap">
+        <h2 id="examples-title" class="center">See the difference</h2>
+        <p class="intro center">First what you said, word for word. Then what Telltype typed.</p>
+        <ul class="pairs">
+          <li class="pair">
+            <p class="pair-kind">Ums and restarts</p>
+            <p class="said"><span class="tag">You said</span><s>the</s> the report is <s>uh</s> basically done I just need to <s>um</s> add the charts</p>
+            <p class="typed"><span class="tag">Telltype typed</span>The report is basically done. I just need to add the charts.</p>
+          </li>
+          <li class="pair">
+            <p class="pair-kind">Changing your mind</p>
+            <p class="said"><span class="tag">You said</span>let's meet at <s>five pm no actually</s> six pm</p>
+            <p class="typed"><span class="tag">Telltype typed</span>Let's meet at 6 pm.</p>
+          </li>
+          <li class="pair">
+            <p class="pair-kind">A list, said out loud</p>
+            <p class="said"><span class="tag">You said</span>pack the following <s>um</s> charger passport headphones and the blue jacket</p>
+            <p class="typed list"><span class="tag">Telltype typed</span>Pack the following:
+- Charger
+- Passport
+- Headphones
+- The blue jacket</p>
+          </li>
+          <li class="pair">
+            <p class="pair-kind">Dates and times</p>
+            <p class="said"><span class="tag">You said</span>my appointment is on march third at two thirty</p>
+            <p class="typed"><span class="tag">Telltype typed</span>My appointment is on March 3 at 2:30.</p>
+          </li>
+          <li class="pair">
+            <p class="pair-kind">The right tone for the app</p>
+            <p class="said"><span class="tag">You said</span>yeah so I'm gonna be <s>like</s> ten minutes late sorry traffic is crazy</p>
+            <p class="typed"><span class="tag">In an email</span>I am going to be 10 minutes late. Sorry, traffic is crazy.</p>
+            <p class="typed"><span class="tag">In a chat with a friend</span>yeah so i'm gonna be 10 minutes late sorry traffic is crazy</p>
+          </li>
+          <li class="pair">
+            <p class="pair-kind">Editing by voice</p>
+            <p class="said"><span class="tag">You selected</span>send me the report by friday. i need it for the board meeting.</p>
+            <p class="said"><span class="tag">and said</span>make this more polite</p>
+            <p class="typed"><span class="tag">Telltype typed</span>Could you please send me the report by Friday? I need it for the board meeting.</p>
+          </li>
+        </ul>
+        <p class="fine center source-note">Real output, not mock-ups: each example comes from Telltype's own test runs, with the app's prompt and its default models (Gemma 4 E4B for cleanup, Qwen3.5 4B for edits). Struck-through words are the ones Telltype left out.</p>
+        <p class="inspired center">Inspired by <a href="https://wisprflow.ai">Wispr Flow</a>, which showed that dictation can feel like this. Telltype brings the idea to Android, free and open source, on a server you run. It is not affiliated with Wispr.</p>
       </div>
     </section>
 
@@ -81,7 +129,7 @@
           <li>
             <img src="assets/text-typed.webp" width="540" height="1200" loading="lazy" alt="The cleaned-up sentence in the Messages reply field, with Raw and Undo buttons.">
             <h3>Text appears</h3>
-            <p>Cleaned up and typed at the cursor. <em>Raw</em> swaps in the untouched transcript, <em>Undo</em> removes it.</p>
+            <p>Typed at the cursor, about a second or two after you stop. <em>Raw</em> swaps in exactly what you said, <em>Undo</em> takes it back.</p>
           </li>
         </ol>
       </div>
@@ -89,31 +137,31 @@
 
     <section id="features" class="section" aria-labelledby="features-title">
       <div class="wrap">
-        <h2 id="features-title" class="center">Everything you need to stop typing</h2>
+        <h2 id="features-title" class="center">What you get</h2>
         <ul class="cards">
           <li class="card">
-            <h3>Types where you are</h3>
-            <p>No keyboard switch and no copy and paste. If an app refuses the text, it waits on the clipboard with a Paste button, and it is always in History.</p>
+            <h3>Talk naturally</h3>
+            <p>No need to speak in finished sentences. Fillers and false starts are left out, and punctuation and capitals are added for you. Swearing stays if you said it.</p>
           </li>
           <li class="card">
-            <h3>Cleanup that edits, not rewrites</h3>
-            <p>Fillers go, false starts are dropped and "5 pm, no actually 6 pm" becomes "6 pm". If the model is slow, simple rules tidy the text instead.</p>
+            <h3>It types what you meant</h3>
+            <p>"No wait", "I mean" and "scratch that" are followed, not typed. Numbers, times and dates come out as digits, and a spoken list becomes a list.</p>
           </li>
           <li class="card">
-            <h3>A tone for every app</h3>
-            <p>Email reads like email, chat reads like chat. Pick formal, casual, very casual or as spoken for each kind of app, and override it per app.</p>
+            <h3>It sounds right in every app</h3>
+            <p>Email comes out formal, a chat with a friend stays casual. Pick the tone for each kind of app, or for one app on its own.</p>
           </li>
           <li class="card">
-            <h3>Your words, spelled your way</h3>
-            <p>A dictionary for names and jargon with "sounds like" forms, and snippets: say "my address" and get the saved text.</p>
+            <h3>Your names, spelled right</h3>
+            <p>Add a word to the dictionary and it sticks: "cooper netties" becomes "Kubernetes". Snippets turn "my address" into the text you saved.</p>
           </li>
           <li class="card">
-            <h3>Command Mode</h3>
-            <p>Select text, tap the bubble and say "make this a bulleted list", "shorter" or "more polite". Undo brings the original back.</p>
+            <h3>Edit text by voice</h3>
+            <p>Select some text, tap the bubble and say "make this more polite", "shorter" or "make this a bulleted list". Undo brings the original back.</p>
           </li>
           <li class="card">
-            <h3>Never loses a word</h3>
-            <p>When your server cannot be reached the dictation is queued and transcribed later. History keeps what you said, with search and an archive.</p>
+            <h3>Your words, your server</h3>
+            <p>Audio and text go only to the server you set up. If it cannot be reached, the dictation waits in a queue, and History keeps what you said.</p>
           </li>
         </ul>
 
@@ -213,7 +261,7 @@
         <li><a href="https://github.com/joeglenn/telltype/blob/main/SECURITY.md">Security</a></li>
       </ul>
     </div>
-    <p class="wrap fine">Inspired by <a href="https://github.com/OpenWhispr/openwhispr">OpenWhispr</a>; not affiliated with it.</p>
+    <p class="wrap fine">Inspired by <a href="https://wisprflow.ai">Wispr Flow</a>, with a feature set that also draws on <a href="https://github.com/OpenWhispr/openwhispr">OpenWhispr</a>. Telltype is not affiliated with either.</p>
   </footer>
 </body>
 </html>
